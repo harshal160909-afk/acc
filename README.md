@@ -1,10 +1,10 @@
 # ACC
 
-ACC is an AI-assisted accounting workspace for Indian businesses. A user describes a business event in everyday language, reviews the exact double-entry proposal, and explicitly approves it before it reaches the Journal. One verified record then feeds the Ledger, Trial Balance, Profit & Loss, Balance Sheet, Cash Movement, ACC Pulse, and controlled Ask ACC calculations.
+ACC is an AI-assisted accounting workspace for Indian businesses. It opens for everyone — no sign-up, no password, no Google account. A visitor describes a business event in everyday language, reviews the exact double-entry proposal, and explicitly approves it before it reaches the Journal. One verified record then feeds the Ledger, Trial Balance, Profit & Loss, Balance Sheet, Cash Movement, ACC Pulse, and controlled Ask ACC calculations.
 
 ## Release scope
 
-- Google OAuth 2.0 / OpenID Connect with PKCE, state, nonce, signed-token verification, immutable internal user IDs, hashed server sessions, and sign-out revocation
+- **Anonymous guest access:** each visitor gets an isolated private workspace keyed to an immutable internal user ID (UUID). A cryptographically random session token is issued; only its SHA-256 hash is stored in D1, and the raw token lives in an HttpOnly/Secure cookie. Sessions rotate and are revoked on sign-out. Email is optional contact information only — it never controls access. See `docs/GUEST-DATA-RETENTION.md`.
 - strict owner/workspace isolation for businesses, books, conversations, portfolios, manual prices, market research, support requests, export, and deletion
 - paise-safe Indian amounts, lakh/crore and quantity × unit-price extraction, cheque/UPI/bank/credit settlement, additive GST, partial payment, customer collection, supplier payment, advances, returns, depreciation, GST/TDS payment, bad debts, provisions, reserves, and linked reversals
 - deterministic accounting validation: AI drafts → rules validation → user review → explicit approval → one atomic post
@@ -17,6 +17,19 @@ ACC is an AI-assisted accounting workspace for Indian businesses. A user describ
 
 ACC does not execute trades, submit taxes, close a legal entity, or post an AI draft without approval. Quotes, external research, and conversational AI stay visibly unavailable until their approved providers are configured.
 
+## Access model (anonymous guest sessions)
+
+There is **no Google login and no login provider to configure.** The public front door is:
+
+```text
+POST /api/session/bootstrap   # idempotent, rate-limited; restores or creates a guest workspace
+POST /api/session/signout     # revokes the session server-side and clears the cookie
+```
+
+The landing page shows a single **“Open ACC”** action that calls bootstrap; a returning visitor with a valid cookie loads straight into their workspace. Every `/api/*` financial route still requires a valid server session — missing, invalid, expired, revoked or spoofed identities are rejected with `401`, and spoofed `owner`/email headers are ignored.
+
+**Optional recovery email:** a visitor may add a contact email later. It is stored as `optional_contact_email`, is never used as an owner key, and never merges workspaces. ACC shows: *“This workspace is currently linked to this browser. Add verified recovery later to access it from another device.”* Cross-device recovery via a verified magic link is intentionally not implemented in this build; typed email never grants access.
+
 ## Local development
 
 Requires Node.js `>=22.13.0`.
@@ -28,23 +41,7 @@ npm run dev
 
 Copy `.env.example` into the environment mechanism supported by the runtime. Never commit real credentials.
 
-## Google sign-in
-
-Configure these server-side values:
-
-```text
-APP_BASE_URL=https://the-exact-public-origin.example
-GOOGLE_CLIENT_ID=...
-GOOGLE_CLIENT_SECRET=...
-```
-
-Register this exact redirect URI in Google Cloud:
-
-```text
-https://the-exact-public-origin.example/auth/google/callback
-```
-
-`APP_BASE_URL` must use HTTPS and contain no path. If the credentials are absent, the public page shows an honest configuration-required state and the private workspace remains locked.
+`APP_BASE_URL` is the only required value (the exact HTTPS public origin, no path). No authentication provider needs to be configured — ACC opens anonymously.
 
 ## AI providers
 
@@ -83,13 +80,17 @@ The acceptance suite covers exact money, zero-data truthfulness, report reconcil
 
 ## Deployment checklist
 
-1. Apply every checked-in D1 migration.
-2. Set `APP_BASE_URL`, Google OAuth credentials, and only the approved optional providers.
-3. Register the exact Google callback for the final domain.
-4. Run the full verification gate.
-5. Publish and test sign-in, onboarding, draft/approve/post, reversal, export, deletion in a disposable account, portfolio creation, and provider-failure states.
-6. Verify CSP/security headers and mobile/desktop layouts on the public origin.
-7. Keep the earlier version available for application rollback and use D1 recovery only for an actual data-recovery event.
+1. Apply every checked-in D1 migration (including `0010_deep_random.sql`, which rebuilds `users` for guest access and drops `oauth_states`). Existing verified users are preserved and tagged `access_mode='google'`.
+2. Set `APP_BASE_URL` and only the approved optional providers. No auth provider is required.
+3. Run the full verification gate.
+4. Publish and test: Open ACC (guest bootstrap), onboarding, draft/approve/post, reversal, export, deletion in a disposable workspace, portfolio creation, sign-out, and provider-failure states.
+5. Verify CSP/security headers and mobile/desktop layouts on the public origin.
+6. Keep the earlier version available for application rollback and use D1 recovery only for an actual data-recovery event. See "Rollback" below.
+
+## Rollback
+
+- **This branch → previous Google build:** revert the application commits and redeploy. Migration `0010` keeps every legacy column (`google_subject`, `email`) populated for verified rows, so the older code can still resolve them. It does, however, drop `oauth_states`; to restore Google sign-in you must re-create that table (re-apply the migration that defined it) so PKCE state can persist. Financial records are untouched either way.
+- **Data recovery:** migration `0010` is a `users` table rebuild. Do not hand-drop the new columns. For a genuine data-loss event, use D1 Time Travel to a pre-migration point in a rehearsed recovery — a code rollback never reverses an applied additive migration.
 
 ## Privacy and operational limits
 
