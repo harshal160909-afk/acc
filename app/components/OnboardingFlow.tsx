@@ -61,18 +61,12 @@ function initialDraft(user: AuthenticatedUser, initial?: WorkspaceConfig) {
 }
 
 export function OnboardingFlow({ user, initial, openingBalancesLocked = false, onComplete, onCancel }: Props) {
-  // Progressive onboarding. A first-time visitor completes a three-field fast
-  // start (name, business, type) and lands in the workspace immediately —
-  // opening balances, legal structure and other details are deferred to the
-  // "Finish setup" checklist inside Books (the edit flow below reaches them).
-  const fastStart = !initial;
   const [step, setStep] = useState(initial ? 8 : 0);
   const [draft, setDraft] = useState(() => initialDraft(user, initial));
   const [focused, setFocused] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  const totalSteps = fastStart ? 3 : 9;
-  const isLast = fastStart ? step === 2 : step === 8;
+  const totalSteps = 9;
 
   const bank = useMemo(() => draft.bankInput ? parseMoneyInput(draft.bankInput) : { valid: true as const, amountPaise: 0, ok: true as const, paise: 0 }, [draft.bankInput]);
   const cash = useMemo(() => draft.cashInput ? parseMoneyInput(draft.cashInput) : { valid: true as const, amountPaise: 0, ok: true as const, paise: 0 }, [draft.cashInput]);
@@ -145,12 +139,12 @@ export function OnboardingFlow({ user, initial, openingBalancesLocked = false, o
           <div><span>Workspace setup</span><strong>{String(step + 1).padStart(2, "0")} / {String(totalSteps).padStart(2, "0")}</strong></div>
           <i><b style={{ width: `${((step + 1) / totalSteps) * 100}%` }} /></i>
         </div>
-        <div className="authenticated-chip"><span>Private workspace</span><strong>{user.email || "Linked to this browser"}</strong></div>
+        <div className="authenticated-chip"><span>Signed in</span><strong>{user.email}</strong></div>
       </header>
 
       <section className="onboarding-stage">
         <div className="onboarding-ambient" aria-hidden="true"><i /><i /><i /></div>
-        <form className="onboarding-card" onSubmit={(event) => { event.preventDefault(); if (isLast) void finish(); else move(step + 1); }}>
+        <form className="onboarding-card" onSubmit={(event) => { event.preventDefault(); if (step === 8) void finish(); else move(step + 1); }}>
           <div className="onboarding-step" key={step}>
             {step === 0 ? (
               <>
@@ -177,7 +171,6 @@ export function OnboardingFlow({ user, initial, openingBalancesLocked = false, o
                   {BUSINESS_TYPES.map((item) => <button type="button" role="radio" aria-checked={draft.businessType === item.value} className={draft.businessType === item.value ? "selected" : ""} key={item.value} onClick={() => setDraft({ ...draft, businessType: item.value })}><strong>{item.label}</strong><span>{item.note}</span></button>)}
                 </div>
                 {draft.businessType === "other" ? <label className="compact-field" htmlFor="custom-type">Describe the business<input id="custom-type" value={draft.customBusinessType} onChange={(event) => setDraft({ ...draft, customBusinessType: event.target.value })} autoFocus /></label> : null}
-                {fastStart ? <p className="onboarding-defer-note">That’s all ACC needs to begin. You can add opening balances and other details any time from <strong>Finish setup</strong> in Books.</p> : null}
               </>
             ) : null}
 
@@ -244,7 +237,7 @@ export function OnboardingFlow({ user, initial, openingBalancesLocked = false, o
           <footer className="onboarding-actions">
             <button type="button" className="button button-quiet" onClick={() => step > 0 ? move(step - 1) : onCancel?.()} disabled={saving}>{step === 0 ? (onCancel ? "Cancel" : "") : "Back"}</button>
             {(step === 4 || step === 5) && !openingBalancesLocked ? <button type="button" className="button button-quiet skip-action" onClick={() => { setDraft(step === 4 ? { ...draft, bankInput: "₹0" } : { ...draft, cashInput: "₹0" }); setError(""); setStep(step + 1); }}>Skip for now</button> : null}
-            <button className="button button-primary" type="submit" disabled={saving}>{isLast ? (saving ? "Creating workspace…" : initial ? "Save workspace" : "Open my workspace") : "Continue"}<span aria-hidden="true">→</span></button>
+            <button className="button button-primary" type="submit" disabled={saving}>{step === 8 ? (saving ? "Creating workspace…" : initial ? "Save workspace" : "Create my workspace") : "Continue"}<span aria-hidden="true">→</span></button>
           </footer>
         </form>
       </section>

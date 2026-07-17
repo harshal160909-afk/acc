@@ -1,4 +1,4 @@
-import { getRequestIdentity, unauthenticatedResponse } from "@/app/lib/server/access";
+import { getRequestIdentity, unauthenticatedResponse } from "@/app/lib/server/auth";
 import { ensureStore, getDatabase } from "@/app/lib/server/context";
 import { enforceRateLimit, validateJsonMutation } from "@/app/lib/server/http-security";
 

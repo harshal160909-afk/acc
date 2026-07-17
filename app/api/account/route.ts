@@ -1,4 +1,4 @@
-import { clearSessionCookie, getRequestIdentity, sha256, unauthenticatedResponse } from "@/app/lib/server/access";
+import { clearSessionCookie, getRequestIdentity, sha256, unauthenticatedResponse } from "@/app/lib/server/auth";
 import { ensureStore, getDatabase, type Database } from "@/app/lib/server/context";
 import { enforceRateLimit, validateJsonMutation } from "@/app/lib/server/http-security";
 

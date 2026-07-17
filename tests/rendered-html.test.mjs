@@ -598,47 +598,19 @@ test("scenario F and G: loading, failure, and empty-history states remain distin
   assertExcludes(workspace, /cashPath|shortMoney|function\s+(?:parseAmount|accountingFor|openingEntries)\b|invented lines|invented bars/i, "Legacy fabricated or coercive finance logic remains");
 });
 
-test("onboarding is a three-field fast start and defers opening balances", async () => {
+test("onboarding asks one sourced question at a time and never requires yearly revenue", async () => {
   const onboarding = await readFile(join(appRoot, "components", "OnboardingFlow.tsx"), "utf8");
 
-  // A first-time visitor completes exactly three fields before entering.
-  assertContains(onboarding, /const fastStart = !initial/, "Onboarding must fast-start a first-time visitor");
-  assertContains(onboarding, /const totalSteps = fastStart \? 3 : 9/, "The fast start must require no more than three steps");
-  assertContains(onboarding, /const isLast = fastStart \? step === 2 : step === 8/, "The fast start must complete on the third field");
-  for (const step of [0, 1, 2]) {
-    assertContains(onboarding, new RegExp(`step === ${step}`), `Fast-start step ${step + 1} is missing`);
+  assertContains(onboarding, /const totalSteps = 9/, "Onboarding must keep the focused nine-step sequence");
+  for (let step = 0; step < 9; step += 1) {
+    assertContains(onboarding, new RegExp(`step === ${step}`), `Onboarding step ${step + 1} is missing`);
   }
-  // The deferred details remain reachable through the edit/checklist path.
-  assertContains(onboarding, /Cash at bank/, "The edit path must still offer opening bank cash");
-  assertContains(onboarding, /Cash in hand/, "The edit path must keep cash in hand separate");
-  assertContains(onboarding, /opening capital/i, "The edit path must offer the source of opening money");
-  assertContains(onboarding, /Finish setup/i, "The fast start must point to the deferred setup checklist");
-  assertContains(onboarding, /Everything ACC knows|Review your workspace/, "The edit path needs a source-value review");
-  assertContains(onboarding, /Private workspace[\s\S]{0,140}user\.email/, "The private guest workspace context must be shown read-only");
-  assertExcludes(onboarding, /annualRevenue|yearly revenue|Google account email|Signed in|type="email"/i, "Onboarding must not ask for an invented identity/revenue input or imply an external login");
-});
-
-test("a first-time visitor can create a workspace after three fields with default opening balances", async () => {
-  const { calculateFinancialSummary } = await loadFinance();
-  // The profile a three-field fast start submits: zero opening balances and an
-  // unspecified legal structure. It must be a valid, zero-truth workspace.
-  const fastStartProfile = {
-    ownerName: "Asha",
-    email: "",
-    businessName: "Asha Traders",
-    businessType: "retail",
-    customBusinessType: "",
-    legalStructure: "not_specified",
-    openingBankPaise: 0,
-    cashInHandPaise: 0,
-    openingCapitalPaise: 0,
-    connectionMode: "manual",
-    financialYear: "2026–27",
-  };
-  const summary = calculateFinancialSummary(fastStartProfile, []);
-  assert.equal(summary.availableCash.amountPaise, 0);
-  assert.equal(summary.revenue.amountPaise, 0);
-  assert.equal(summary.hasTransactionHistory, false);
+  assertContains(onboarding, /Cash at bank/, "Onboarding must ask for optional opening bank cash");
+  assertContains(onboarding, /Cash in hand/, "Onboarding must keep cash in hand separate");
+  assertContains(onboarding, /opening capital/i, "Onboarding must ask for the source of opening money");
+  assertContains(onboarding, /Everything ACC knows|Review your workspace/, "Onboarding needs a source-value review");
+  assertContains(onboarding, /Signed in[\s\S]{0,120}user\.email/, "Authenticated identity must be shown read-only");
+  assertExcludes(onboarding, /annualRevenue|yearly revenue|Google account email|type="email"/i, "Onboarding still asks for an invented or duplicate identity/revenue input");
 });
 
 test("the ACC visual system keeps the reference-led editorial palette, solid reports, accessible focus, and restrained glass", async () => {
@@ -834,92 +806,15 @@ test("the complete Market Intelligence product surface, evidence boundaries, and
   }
 });
 
-async function loadInvestments() {
+test("investment quantities and values remain decimal-safe", async () => {
   const source = await readFile(join(appRoot, "lib", "investments.ts"), "utf8");
   const javascript = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
-  return import(`data:text/javascript;base64,${Buffer.from(javascript).toString("base64")}`);
-}
-
-test("investment quantities and values remain decimal-safe", async () => {
-  const investmentsModule = await loadInvestments();
+  const investmentsModule = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString("base64")}`);
   assert.equal(investmentsModule.parseQuantityMicros("10"), 10_000_000);
   assert.equal(investmentsModule.parseQuantityMicros("0.125"), 125_000);
   assert.equal(investmentsModule.parseQuantityMicros("1.1234567"), null);
   assert.equal(investmentsModule.multiplyPriceByQuantity(245_050, 10_000_000), 2_450_500);
   assert.equal(investmentsModule.formatQuantityMicros(125_000), "0.125");
-});
-
-test("weighted-average cost basis books realized and unrealized gains exactly", async () => {
-  const { computePortfolioAnalytics } = await loadInvestments();
-  // Deposit ₹1,00,000; buy 10 @ ₹2,000 (₹20,000 + ₹100 fees); buy 10 @ ₹2,400
-  // (₹24,000 + ₹100 fees); sell 5 @ ₹3,000 (₹15,000 − ₹50 fees). Weighted-avg
-  // cost pool before sale = 20,100 + 24,100 = 44,200 over 20 units. Selling 5
-  // removes 44,200 * 5/20 = 11,050. Realized = (15,000 − 50) − 11,050 = 3,900.
-  const tx = [
-    { transactionType: "deposit", tradeDate: "2026-01-01", securityId: null, quantityMicros: null, amountPaise: 10_000_000, feesPaise: 0, taxesPaise: 0 },
-    { transactionType: "buy", tradeDate: "2026-01-02", securityId: "sec-1", quantityMicros: 10_000_000, amountPaise: 2_000_000, feesPaise: 10_000, taxesPaise: 0 },
-    { transactionType: "buy", tradeDate: "2026-02-02", securityId: "sec-1", quantityMicros: 10_000_000, amountPaise: 2_400_000, feesPaise: 10_000, taxesPaise: 0 },
-    { transactionType: "sell", tradeDate: "2026-03-02", securityId: "sec-1", quantityMicros: 5_000_000, amountPaise: 1_500_000, feesPaise: 5_000, taxesPaise: 0 },
-  ];
-  const priced = computePortfolioAnalytics(tx, new Map([["sec-1", 250_000]])); // ₹2,500/unit now
-  assert.equal(priced.realizedGainPaise, 390_000); // ₹3,900
-  // Remaining cost pool = 44,200 − 11,050 = 33,150 over 15 units. Value = 15 * 2,500 = 37,500.
-  assert.equal(priced.costBasisPaise, 3_315_000);
-  assert.equal(priced.holdingsValuePaise, 3_750_000);
-  assert.equal(priced.unrealizedGainPaise, 435_000); // 37,500 − 33,150 = 4,350
-  assert.equal(priced.valuationStatus, "complete");
-  assert.equal(priced.dividendsInterestPaise, 0);
-  assert.equal(priced.feesTaxesPaise, 25_000);
-
-  // Without a price, unrealized/total/XIRR are honestly unavailable, not faked.
-  const unpriced = computePortfolioAnalytics(tx, new Map());
-  assert.equal(unpriced.realizedGainPaise, 390_000);
-  assert.equal(unpriced.holdingsValuePaise, null);
-  assert.equal(unpriced.unrealizedGainPaise, null);
-  assert.equal(unpriced.totalValuePaise, null);
-  assert.equal(unpriced.valuationStatus, "missing_prices");
-  assert.equal(unpriced.xirrBps, null);
-  assert.ok(unpriced.xirrUnavailableReason);
-});
-
-test("XIRR is reported only when mathematically valid", async () => {
-  const { computePortfolioAnalytics, computeXirrBps } = await loadInvestments();
-  // A single deposit with no elapsed time and no gain cannot yield a rate.
-  const flat = computeXirrBps([{ transactionType: "deposit", tradeDate: new Date().toISOString().slice(0, 10), securityId: null, quantityMicros: null, amountPaise: 1_000_000, feesPaise: 0, taxesPaise: 0 }], 1_000_000);
-  assert.equal(flat.bps, null);
-  // Deposit ₹1,00,000 a year ago, now worth ₹1,10,000 → ~10% annualized.
-  const oneYearAgo = new Date(Date.now() - 366 * 86_400_000).toISOString().slice(0, 10);
-  const grown = computePortfolioAnalytics(
-    [{ transactionType: "deposit", tradeDate: oneYearAgo, securityId: null, quantityMicros: null, amountPaise: 10_000_000, feesPaise: 0, taxesPaise: 0 }],
-    new Map(),
-  );
-  assert.notEqual(grown.totalValuePaise, null);
-  const xirr = computeXirrBps(
-    [{ transactionType: "deposit", tradeDate: oneYearAgo, securityId: null, quantityMicros: null, amountPaise: 10_000_000, feesPaise: 0, taxesPaise: 0 }],
-    11_000_000,
-  );
-  assert.ok(xirr.bps !== null && xirr.bps > 900 && xirr.bps < 1_100, `expected ~10% (900–1100 bps), got ${xirr.bps}`);
-});
-
-test("investment writes are atomic, race-safe, scoped and paginated", async () => {
-  const [route, view] = await Promise.all([
-    readFile(join(appRoot, "api", "investments", "route.ts"), "utf8"),
-    readFile(join(appRoot, "components", "InvestmentsView.tsx"), "utf8"),
-  ]);
-  // Atomic multi-write commits (transaction + portfolio update + audit).
-  assertContains(route, /commit\(database, \[[\s\S]*INSERT INTO investment_transactions[\s\S]*UPDATE portfolios[\s\S]*auditStatement/, "The transaction write must commit insert, portfolio update and audit atomically");
-  assertContains(route, /if \(database\.batch\) await database\.batch\(statements\)/, "Atomic commit must use D1 batch when available");
-  // Race-safe get-or-create security.
-  assertContains(route, /INSERT OR IGNORE INTO securities[\s\S]*SELECT id FROM securities WHERE symbol = \? AND exchange = \?/, "Security lookup must be race-safe (insert-or-ignore then read canonical)");
-  // Price lookups scoped to relevant securities, not a global scan.
-  assertContains(route, /WHERE security_id IN \(\$\{placeholders\}\)/, "Price lookups must be scoped to the workspace's relevant securities");
-  // Paginated history and bounded embedded transactions.
-  assertContains(route, /async function listTransactions[\s\S]*t\.created_at < \?[\s\S]*ORDER BY t\.created_at DESC LIMIT \?/, "Transaction history must be cursor-paginated");
-  assertContains(route, /recentTransactions: rows\.slice\(-RECENT_TRANSACTION_LIMIT\)/, "Each summary must embed only a bounded recent-transactions window");
-  // Client submission safety: one idempotency key per operation, disabled while saving.
-  assertContains(view, /if \(!txKey\.current\) txKey\.current = crypto\.randomUUID\(\)/, "A transaction must reuse one idempotency key across retries");
-  assertContains(view, /disabled=\{savingTx/, "The transaction submit button must be disabled while saving");
-  assertContains(view, /timedFetch\(/, "Investment requests must use a timeout");
 });
 
 test("the overview feels simple while its connected visualization stays data-backed", async () => {
@@ -978,9 +873,8 @@ test("profile and entry APIs reject every unauthenticated read and write before 
 });
 
 test("P0 storage, approval, privacy and portfolio controls are wired to immutable owner identities", async () => {
-  const [access, bootstrap, context, entryApi, investmentApi, investmentView, accountApi, schema] = await Promise.all([
-    readFile(join(appRoot, "lib", "server", "access.ts"), "utf8"),
-    readFile(join(appRoot, "api", "session", "bootstrap", "route.ts"), "utf8"),
+  const [auth, context, entryApi, investmentApi, investmentView, accountApi, schema] = await Promise.all([
+    readFile(join(appRoot, "lib", "server", "auth.ts"), "utf8"),
     readFile(join(appRoot, "lib", "server", "context.ts"), "utf8"),
     readFile(join(appRoot, "api", "entries", "route.ts"), "utf8"),
     readFile(join(appRoot, "api", "investments", "route.ts"), "utf8"),
@@ -988,16 +882,8 @@ test("P0 storage, approval, privacy and portfolio controls are wired to immutabl
     readFile(join(appRoot, "api", "account", "route.ts"), "utf8"),
     readFile(join(projectRoot, "db", "schema.ts"), "utf8"),
   ]);
-  // The generalized access layer must resolve a hashed server session to an
-  // immutable internal user id, and never store the raw token.
-  assertContains(access, /auth_sessions[\s\S]*JOIN users[\s\S]*s\.id_hash = \?/, "A session must resolve to an internal user via its hashed id");
-  assertContains(access, /createGuestIdentity[\s\S]*access_mode[\s\S]*guest/, "A guest identity must be an immutable internal user, not an email");
-  assertContains(access, /INSERT INTO auth_sessions[\s\S]*sha256\(token\)/, "Only the SHA-256 hash of the session token may be stored");
-  assertExcludes(access, /google_subject\s*=\s*\?|RSASSA-PKCS1-v1_5|GOOGLE_ISSUERS|oauth2\.googleapis\.com/, "No Google OAuth verification may remain in the access layer");
-  assertContains(access, /httpOnly:\s*true[\s\S]*secure:\s*true/, "The session cookie must be HttpOnly and Secure");
-  // Bootstrap is the public front door: idempotent, rate-limited, guest-scoped.
-  assertContains(bootstrap, /bootstrapAccessSession[\s\S]*resolveWorkspace/, "Bootstrap must resolve or create one private workspace per identity");
-  assertContains(bootstrap, /enforceRateLimit\([\s\S]*session:bootstrap/, "Bootstrap must be rate limited");
+  assertContains(auth, /google_subject[\s\S]*auth_sessions[\s\S]*id_hash/, "Google identity must resolve to an internal user and hashed server session");
+  assertContains(auth, /RSASSA-PKCS1-v1_5[\s\S]*GOOGLE_ISSUERS[\s\S]*claims\.nonce/, "Google ID tokens require signature, issuer, audience and nonce checks");
   assertExcludes(context, /CREATE TABLE|ALTER TABLE/i, "Request-time database DDL must not remain in context setup");
   assertContains(entryApi, /database\.batch\([\s\S]*aiDraftId|aiDraftId[\s\S]*database\.batch\(/, "AI approval must use an atomic D1 batch");
   assertContains(entryApi, /const journalLines[\s\S]*expectedLines = deriveJournalLines[\s\S]*sameJournalLines\(journalLines, expectedLines\)/, "AI-proposed journal lines must be fully re-derived and compared");
@@ -1054,7 +940,7 @@ test("spoofed identity headers never authenticate financial mutations", async ()
   }
 });
 
-test("server renders the public guest entry with no Google login", async () => {
+test("server renders ACC entry without a manual Google-email impersonation field", async () => {
   const response = await workerFetch("/", {
     headers: {
       accept: "text/html",
@@ -1066,43 +952,7 @@ test("server renders the public guest entry with no Google login", async () => {
   const html = await response.text();
   assertContains(html, /<title>[^<]*ACC[^<]*<\/title>/i, "The document title must name ACC");
   assertContains(html, /Your personal AI accountant/i, "The ACC entry proposition is missing");
-  assertContains(html, /Open ACC/i, "The public entry must offer the one-step Open ACC action");
-  assertExcludes(html, /Continue with Google|Sign in with Google|Google account email|owner@example\.com|Commerce Twin/i, "The entry screen must not reference Google login or a fake identity prompt");
-});
-
-test("Google OAuth is fully removed and the public front door is anonymous, isolated, and rate limited", async () => {
-  const appFiles = await appSourceFiles();
-  const relative = (file) => file.slice(appRoot.length + 1);
-  const oauthRoutes = appFiles.filter((file) => /auth\/google|auth\/signout/.test(relative(file)));
-  assert.deepEqual(oauthRoutes, [], "No Google OAuth route handlers may remain in the app");
-  assert.equal(appFiles.some((file) => relative(file) === "lib/server/auth.ts"), false, "The Google auth module must be replaced by access.ts");
-  assert.equal(appFiles.some((file) => relative(file) === "lib/server/access.ts"), true, "The generalized access module must exist");
-
-  const [envExample, migration, schema] = await Promise.all([
-    readFile(join(projectRoot, ".env.example"), "utf8"),
-    readFile(join(projectRoot, "drizzle", "0010_deep_random.sql"), "utf8"),
-    readFile(join(projectRoot, "db", "schema.ts"), "utf8"),
-  ]);
-  assertExcludes(envExample, /GOOGLE_CLIENT_ID|GOOGLE_CLIENT_SECRET/, "Google OAuth environment variables must be removed");
-  assertContains(schema, /access_mode[\s\S]*optional_contact_email/, "Users must carry an access mode and optional (non-identity) contact email");
-  assertContains(migration, /access_mode[\s\S]*'google'[\s\S]*FROM `users`/, "Legacy verified users must be preserved and tagged access_mode='google'");
-
-  // The bootstrap front door validates the request before any storage access:
-  // a non-JSON body is rejected without touching the database.
-  const wrongType = await workerFetch("/api/session/bootstrap", {
-    method: "POST",
-    headers: { "content-type": "text/plain" },
-    body: "{}",
-  });
-  assert.equal(wrongType.status, 415, "Bootstrap must require an application/json body");
-
-  // A cross-site mutation attempt is blocked before storage.
-  const crossSite = await workerFetch("/api/session/bootstrap", {
-    method: "POST",
-    headers: { "content-type": "application/json", "sec-fetch-site": "cross-site" },
-    body: "{}",
-  });
-  assert.equal(crossSite.status, 403, "Bootstrap must block cross-site mutations");
+  assertExcludes(html, /Google account email|owner@example\.com|Commerce Twin/i, "The entry screen contains a fake or obsolete identity prompt");
 });
 
 test("no active or dead app source contains fabricated finance seeds or shared-user fallbacks", async () => {

@@ -1,5 +1,5 @@
 import { ensureStore, resolveWorkspace, safeJson } from "@/app/lib/server/context";
-import { getRequestIdentity, unauthenticatedResponse } from "@/app/lib/server/access";
+import { getRequestIdentity, unauthenticatedResponse } from "@/app/lib/server/auth";
 import { getDatabase } from "@/app/lib/server/context";
 import { enforceRateLimit, validateJsonMutation } from "@/app/lib/server/http-security";
 import type { JournalLine, TransactionDraft } from "@/app/components/types";

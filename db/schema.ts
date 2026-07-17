@@ -1,22 +1,13 @@
 import { integer, sqliteTable, text, index, uniqueIndex } from "drizzle-orm/sqlite-core";
 
-// ACC identity is an immutable internal user id. `access_mode` distinguishes an
-// anonymous guest (the public default) from a legacy verified identity. Email is
-// never an access key: it is optional contact information only. `google_subject`
-// and `email` are nullable so a guest can exist with neither, while legacy rows
-// keep their verified values. NULLs are distinct in a SQLite unique index, so
-// unlimited guests coexist without colliding on these columns.
 export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
-  googleSubject: text("google_subject"),
-  email: text("email"),
-  displayName: text("display_name").notNull().default("Guest"),
-  accessMode: text("access_mode").notNull().default("guest"),
-  optionalContactEmail: text("optional_contact_email"),
+  googleSubject: text("google_subject").notNull(),
+  email: text("email").notNull(),
+  displayName: text("display_name").notNull(),
   createdAt: integer("created_at").notNull(),
   updatedAt: integer("updated_at").notNull(),
   deletedAt: integer("deleted_at"),
-  lastActiveAt: integer("last_active_at"),
 }, (table) => [
   uniqueIndex("users_google_subject_idx").on(table.googleSubject),
   uniqueIndex("users_email_idx").on(table.email),
@@ -30,6 +21,17 @@ export const authSessions = sqliteTable("auth_sessions", {
   lastSeenAt: integer("last_seen_at").notNull(),
   revokedAt: integer("revoked_at"),
 }, (table) => [index("auth_sessions_user_expires_idx").on(table.userId, table.expiresAt)]);
+
+export const oauthStates = sqliteTable("oauth_states", {
+  idHash: text("id_hash").primaryKey(),
+  browserHash: text("browser_hash").notNull(),
+  codeVerifier: text("code_verifier").notNull(),
+  nonce: text("nonce").notNull(),
+  returnTo: text("return_to").notNull(),
+  createdAt: integer("created_at").notNull(),
+  expiresAt: integer("expires_at").notNull(),
+  usedAt: integer("used_at"),
+}, (table) => [index("oauth_states_expires_idx").on(table.expiresAt)]);
 
 export const rateLimitEvents = sqliteTable("rate_limit_events", {
   id: text("id").primaryKey(),

@@ -1,26 +1,23 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { DataUnavailableState } from "./FinancialUI";
-import { openAccSession, signOutAcc } from "../lib/client/session";
 import { OnboardingFlow } from "./OnboardingFlow";
 import type { BusinessType, LegalStructure, WorkspaceConfig } from "./types";
 import { Workspace } from "./Workspace";
 
-type InitialIdentity = {
+type AuthenticatedUser = {
   displayName: string;
-  accessMode: "guest" | "google";
-  optionalContactEmail: string | null;
+  email: string;
 };
 
 type Props = {
-  // Present when this browser already holds a valid session (returning visitor).
-  // Null for a first-time visitor, who sees the landing and one "Open ACC" step.
-  initialIdentity: InitialIdentity | null;
+  authenticatedUser: AuthenticatedUser | null;
+  signInPath: string;
+  signOutPath: string;
 };
 
 type BootstrapState =
-  | { status: "landing" }
   | { status: "loading" }
   | { status: "onboarding"; profile?: WorkspaceConfig }
   | { status: "ready"; profile: WorkspaceConfig }
@@ -53,26 +50,15 @@ function isProfile(value: unknown): value is WorkspaceConfig {
     && typeof row.financialYear === "string";
 }
 
-export function AccApp({ initialIdentity }: Props) {
-  const [bootstrap, setBootstrap] = useState<BootstrapState>(
-    initialIdentity ? { status: "loading" } : { status: "landing" },
-  );
+export function AccApp({ authenticatedUser, signInPath, signOutPath }: Props) {
+  const [bootstrap, setBootstrap] = useState<BootstrapState>({ status: "loading" });
   const [editing, setEditing] = useState<{ openingBalancesLocked: boolean } | null>(null);
-  const mounted = useRef(true);
-  useEffect(() => () => { mounted.current = false; }, []);
 
   const loadProfile = useCallback(async () => {
+    if (!authenticatedUser) return;
     try {
-      const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), 10_000);
-      let response: Response;
-      try {
-        response = await fetch("/api/profile", { cache: "no-store", signal: controller.signal });
-      } finally {
-        window.clearTimeout(timeout);
-      }
+      const response = await fetch("/api/profile", { cache: "no-store" });
       const body = await response.json() as { profile?: unknown; error?: string };
-      if (!mounted.current) return;
       if (!response.ok) throw new Error(body.error || "We could not load your workspace profile.");
       if (body.profile === null || body.profile === undefined) {
         setBootstrap({ status: "onboarding" });
@@ -85,34 +71,19 @@ export function AccApp({ initialIdentity }: Props) {
       }
       setBootstrap({ status: "ready", profile: body.profile });
     } catch (cause) {
-      if (!mounted.current) return;
-      const aborted = cause instanceof DOMException && cause.name === "AbortError";
-      setBootstrap({ status: "error", message: aborted
-        ? "ACC could not finish loading your workspace in time. Nothing was changed. Retry to continue."
-        : cause instanceof Error ? cause.message : "We could not load your workspace profile." });
+      setBootstrap({ status: "error", message: cause instanceof Error ? cause.message : "We could not load your workspace profile." });
     }
-  }, []);
+  }, [authenticatedUser]);
 
-  const enterAcc = useCallback(async () => {
-    setBootstrap({ status: "loading" });
-    try {
-      await openAccSession();
-      if (!mounted.current) return;
-      await loadProfile();
-    } catch (cause) {
-      if (!mounted.current) return;
-      setBootstrap({ status: "error", message: cause instanceof Error ? cause.message : "ACC could not open your workspace." });
-    }
-  }, [loadProfile]);
-
-  // Returning visitor with a live session: load straight into the workspace.
   useEffect(() => {
-    if (!initialIdentity) return;
+    if (!authenticatedUser) return;
     const timeout = window.setTimeout(() => void loadProfile(), 0);
     return () => window.clearTimeout(timeout);
-  }, [initialIdentity, loadProfile]);
+  }, [authenticatedUser, loadProfile]);
 
-  const saveProfile = useCallback(async (profile: WorkspaceConfig) => {
+  if (!authenticatedUser) return <AuthLanding signInPath={signInPath} />;
+
+  async function saveProfile(profile: WorkspaceConfig) {
     const response = await fetch("/api/profile", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -121,25 +92,31 @@ export function AccApp({ initialIdentity }: Props) {
     const body = await response.json() as { profile?: unknown; error?: string };
     if (!response.ok) throw new Error(body.error || "We could not save this workspace. Your previous values have not been changed.");
     if (!isProfile(body.profile)) throw new Error("The workspace was saved, but the response was incomplete.");
-    if (!mounted.current) return;
     setBootstrap({ status: "ready", profile: body.profile });
     setEditing(null);
-  }, []);
+  }
 
-  if (bootstrap.status === "landing") return <GuestLanding onOpen={() => void enterAcc()} />;
-  if (bootstrap.status === "loading") return <AppLoading />;
-  if (bootstrap.status === "error") return <main className="bootstrap-error"><AccLogo /><DataUnavailableState title="Unable to load your workspace" message={bootstrap.message} onRetry={() => void enterAcc()} /><button className="button button-quiet" onClick={() => void signOutAcc()}>Start a new workspace</button></main>;
+  if (bootstrap.status === "loading") return <AppLoading email={authenticatedUser.email} />;
+  if (bootstrap.status === "error") return <main className="bootstrap-error"><AccLogo /><DataUnavailableState title="Unable to load your workspace" message={bootstrap.message} onRetry={() => { setBootstrap({ status: "loading" }); void loadProfile(); }} /><a className="button button-quiet" href={signOutPath}>Sign out</a></main>;
+  if (bootstrap.status === "onboarding") return <OnboardingFlow user={authenticatedUser} initial={bootstrap.profile} onComplete={saveProfile} />;
+  if (editing) return <OnboardingFlow user={authenticatedUser} initial={bootstrap.profile} openingBalancesLocked={editing.openingBalancesLocked} onComplete={saveProfile} onCancel={() => setEditing(null)} />;
 
-  const guestUser = { displayName: initialIdentity?.displayName ?? "Guest", email: initialIdentity?.optionalContactEmail ?? "" };
-  if (bootstrap.status === "onboarding") return <OnboardingFlow user={guestUser} initial={bootstrap.profile} onComplete={saveProfile} />;
-  if (editing) return <OnboardingFlow user={guestUser} initial={bootstrap.profile} openingBalancesLocked={editing.openingBalancesLocked} onComplete={saveProfile} onCancel={() => setEditing(null)} />;
-
-  return <Workspace config={bootstrap.profile} onSignOut={() => void signOutAcc()} onEditProfile={(openingBalancesLocked) => setEditing({ openingBalancesLocked })} />;
+  return <Workspace config={bootstrap.profile} signOutPath={signOutPath} onEditProfile={(openingBalancesLocked) => setEditing({ openingBalancesLocked })} />;
 }
 
-function GuestLanding({ onOpen }: { onOpen: () => void }) {
-  const [opening, setOpening] = useState(false);
-  const open = () => { setOpening(true); onOpen(); };
+function AuthLanding({ signInPath }: { signInPath: string }) {
+  const [authMessage, setAuthMessage] = useState("");
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("error") === "access_denied" || params.get("auth") === "cancelled") setAuthMessage("Sign-in was cancelled. Nothing was created or changed.");
+      else if (params.get("auth") === "configuration_required") setAuthMessage("Google sign-in is not configured on this deployment yet. The workspace remains locked until the site owner adds the approved Google OAuth credentials.");
+      else if (params.get("auth") === "invalid_state") setAuthMessage("That sign-in attempt expired or could not be verified. Start again from this page.");
+      else if (params.get("auth") === "failed") setAuthMessage("Google sign-in could not be completed. No business records were changed.");
+    }, 0);
+    return () => window.clearTimeout(timeout);
+  }, []);
+
   return (
     <main className="auth-shell">
       <div className="auth-orb auth-orb-green" aria-hidden="true" />
@@ -150,10 +127,9 @@ function GuestLanding({ onOpen }: { onOpen: () => void }) {
           <p className="eyebrow">WELCOME TO ACC</p>
           <h1>Your personal<br />AI accountant.</h1>
           <p className="auth-lede">Tell ACC what happened in everyday words. See where the money went, then approve it when it looks right.</p>
-          <button className="button button-primary auth-action" onClick={open} disabled={opening} aria-busy={opening}>
-            {opening ? "Opening ACC…" : "Open ACC"} <span aria-hidden="true">→</span>
-          </button>
-          <p className="auth-disclosure">No sign-up and no password. ACC opens a private workspace for this browser instantly.</p>
+          <a className="button button-primary auth-action" href={signInPath}><span className="google-mark" aria-hidden="true">G</span> Continue with Google <span aria-hidden="true">→</span></a>
+          <p className="auth-disclosure">Your account is confirmed on the next screen. ACC does not see or store your password.</p>
+          {authMessage ? <p className="auth-message" role="alert">{authMessage}</p> : null}
         </div>
         <div className="auth-instrument" aria-label="A transaction moving through ACC">
           <div className="instrument-halo" aria-hidden="true" />
@@ -170,15 +146,15 @@ function GuestLanding({ onOpen }: { onOpen: () => void }) {
         <article><span>03 · APPROVE</span><h2>Post once.</h2><p>Accounting rules validate the draft. Only your approval posts the journal entry and updates every connected report.</p></article>
       </section>
       <section className="auth-trust-strip">
-        <div><span>SECURE BY DESIGN</span><h2>Your records belong to a private workspace on this browser—never a shared account.</h2></div>
-        <p>ACC uses server sessions with an immutable internal identity, owner-scoped records, review-before-posting controls, audit events, complete data export, and permanent deletion. You can add an optional recovery email later. Provider secrets stay on the server.</p>
-        <button className="button button-secondary" onClick={open} disabled={opening}>Open ACC</button>
+        <div><span>SECURE BY DESIGN</span><h2>Your records belong to your Google identity—not an email header.</h2></div>
+        <p>ACC uses server sessions, owner-scoped records, review-before-posting controls, audit events, complete data export, and permanent account deletion. Provider secrets stay on the server.</p>
+        <a className="button button-secondary" href={signInPath}>Sign in with Google</a>
       </section>
       <footer className="auth-footer"><span>Understand your money</span><span>Review before posting</span><span>Built for Indian businesses</span></footer>
     </main>
   );
 }
 
-function AppLoading() {
-  return <main className="app-loading" aria-busy="true"><div className="loading-bar"><AccLogo /><span>Private workspace</span></div><div className="loading-stage"><i /><i /><i /><p>Opening your workspace…</p></div></main>;
+function AppLoading({ email }: { email: string }) {
+  return <main className="app-loading" aria-busy="true"><div className="loading-bar"><AccLogo /><span>{email}</span></div><div className="loading-stage"><i /><i /><i /><p>Opening your workspace…</p></div></main>;
 }
