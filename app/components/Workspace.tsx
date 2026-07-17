@@ -101,6 +101,7 @@ export function Workspace({
   const [transactionType, setTransactionType] = useState<TransactionType | null>(null);
   const [selectedEntry, setSelectedEntry] = useState<PostedEntry | null>(null);
   const [companyOpen, setCompanyOpen] = useState(false);
+  const [setupDismissed, setSetupDismissed] = useState(false);
   const [announcement, setAnnouncement] = useState("");
   const [asOf] = useState(todayISO);
   const period = useMemo(() => financialYearToDateRange(asOf), [asOf]);
@@ -183,17 +184,26 @@ export function Workspace({
             <div className="integrity-notice" role="status"><strong>{records.data.excludedCount} earlier {records.data.excludedCount === 1 ? "record needs" : "records need"} your attention.</strong><span>Open Books when you’re ready to review {records.data.excludedCount === 1 ? "it" : "them"}.</span></div>
           ) : null}
           {records.status === "success" && view === "overview" ? (
-            <Overview
-              asOf={asOf}
-              periodLabel={formatDateRange(period)}
-              entries={periodEntries}
-              summary={summary}
-              bridge={bridge}
-              onAdd={setTransactionType}
-              onBooks={openBooks}
-              onAccounts={() => setView("accounts")}
-              onEntry={setSelectedEntry}
-            />
+            <>
+              {!setupDismissed && entries.length === 0 && config.openingBankPaise === 0 && config.cashInHandPaise === 0 && config.openingCapitalPaise === 0 ? (
+                <SetupChecklist
+                  onAddOpeningBalances={() => onEditProfile(false)}
+                  onFirstTransaction={() => setView("ask")}
+                  onDismiss={() => setSetupDismissed(true)}
+                />
+              ) : null}
+              <Overview
+                asOf={asOf}
+                periodLabel={formatDateRange(period)}
+                entries={periodEntries}
+                summary={summary}
+                bridge={bridge}
+                onAdd={setTransactionType}
+                onBooks={openBooks}
+                onAccounts={() => setView("accounts")}
+                onEntry={setSelectedEntry}
+              />
+            </>
           ) : null}
           {records.status === "success" && view === "books" ? (
             <Books
@@ -558,6 +568,22 @@ function EntryDetail({ entry, onClose, onReverse }: { entry: PostedEntry; onClos
   const [reversing, setReversing] = useState(false); const [confirming, setConfirming] = useState(false); const [reversalDate, setReversalDate] = useState(todayISO); const [error, setError] = useState("");
   async function reverse() { setReversing(true); setError(""); try { await onReverse(entry, reversalDate); } catch (cause) { setError(cause instanceof Error ? cause.message : "The reversal could not be posted."); setReversing(false); } }
   return <ModalFrame label={`Entry ${entry.entryNumber}`} onClose={reversing ? undefined : onClose}><div className="entry-detail"><header><span className="status-posted">Posted</span><h2>{entry.description}</h2><p>{entry.entryNumber} · {formatDisplayDate(entry.date)}</p></header><dl><div><dt>Amount</dt><dd>{formatINR(entry.amountPaise)}</dd></div><div><dt>What it was</dt><dd>{transactionTypeLabel(entry.transactionType)} · {categoryLabel(entry.category)}</dd></div><div><dt>Where the money went</dt><dd>{settlementLabel(entry.settlement)}</dd></div><div><dt>Added by</dt><dd>{entry.createdBy}</dd></div><div><dt>Posted at</dt><dd>{new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(entry.createdAt))}</dd></div>{entry.reversalOf ? <div><dt>Corrects entry</dt><dd>{entry.reversalOf}</dd></div> : null}</dl><div className="review-journal"><header><span>Account</span><span>Debit</span><span>Credit</span></header>{lines.map((line) => <div key={line.account}><strong>{line.account}</strong><span>{line.debitPaise ? formatINR(line.debitPaise) : "—"}</span><span>{line.creditPaise ? formatINR(line.creditPaise) : "—"}</span></div>)}</div>{entry.transactionType !== "reversal" ? <section className="reversal-control">{confirming ? <><label>Correction date<input type="date" value={reversalDate} max={todayISO()} onChange={(event) => setReversalDate(event.target.value)} /></label><p>ACC will keep this entry and post equal-and-opposite lines linked to it. History is never overwritten.</p><div><button className="button button-quiet" onClick={() => setConfirming(false)} disabled={reversing}>Keep entry</button><button className="button button-danger" onClick={() => void reverse()} disabled={reversing}>{reversing ? "Posting reversal…" : "Post linked reversal"}</button></div></> : <button className="button button-secondary" onClick={() => setConfirming(true)}>Reverse this posted entry</button>}</section> : null}{error ? <p className="modal-error" role="alert">{error}</p> : null}</div></ModalFrame>;
+}
+
+function SetupChecklist({ onAddOpeningBalances, onFirstTransaction, onDismiss }: { onAddOpeningBalances: () => void; onFirstTransaction: () => void; onDismiss: () => void }) {
+  return (
+    <section className="setup-checklist glass-panel" aria-label="Finish setup">
+      <header>
+        <div><span>FINISH SETUP</span><h2>Your workspace is ready.</h2><p>Two optional steps whenever you want them—nothing is required to begin.</p></div>
+        <button type="button" className="setup-dismiss" onClick={onDismiss} aria-label="Hide finish setup">Hide</button>
+      </header>
+      <ol className="setup-steps">
+        <li className="is-done"><i aria-hidden="true">✓</i><div><strong>Private workspace created</strong><span>Linked to this browser and only yours.</span></div></li>
+        <li><i aria-hidden="true">2</i><div><strong>Add opening balances</strong><span>Enter today’s bank cash, cash in hand and capital. You can do this later; they lock after your first posted entry.</span><button type="button" className="button button-secondary" onClick={onAddOpeningBalances}>Add opening balances</button></div></li>
+        <li><i aria-hidden="true">3</i><div><strong>Post your first transaction</strong><span>Tell ACC what happened in everyday words, review the effect, then approve.</span><button type="button" className="button button-primary" onClick={onFirstTransaction}>Record something</button></div></li>
+      </ol>
+    </section>
+  );
 }
 
 function CompanyPanel({ config, onSignOut, hasPostedEntries, onEdit, onClose }: { config: WorkspaceConfig; onSignOut: () => void; hasPostedEntries: boolean; onEdit: (openingBalancesLocked: boolean) => void; onClose: () => void }) {

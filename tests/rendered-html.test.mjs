@@ -598,19 +598,47 @@ test("scenario F and G: loading, failure, and empty-history states remain distin
   assertExcludes(workspace, /cashPath|shortMoney|function\s+(?:parseAmount|accountingFor|openingEntries)\b|invented lines|invented bars/i, "Legacy fabricated or coercive finance logic remains");
 });
 
-test("onboarding asks one sourced question at a time and never requires yearly revenue", async () => {
+test("onboarding is a three-field fast start and defers opening balances", async () => {
   const onboarding = await readFile(join(appRoot, "components", "OnboardingFlow.tsx"), "utf8");
 
-  assertContains(onboarding, /const totalSteps = 9/, "Onboarding must keep the focused nine-step sequence");
-  for (let step = 0; step < 9; step += 1) {
-    assertContains(onboarding, new RegExp(`step === ${step}`), `Onboarding step ${step + 1} is missing`);
+  // A first-time visitor completes exactly three fields before entering.
+  assertContains(onboarding, /const fastStart = !initial/, "Onboarding must fast-start a first-time visitor");
+  assertContains(onboarding, /const totalSteps = fastStart \? 3 : 9/, "The fast start must require no more than three steps");
+  assertContains(onboarding, /const isLast = fastStart \? step === 2 : step === 8/, "The fast start must complete on the third field");
+  for (const step of [0, 1, 2]) {
+    assertContains(onboarding, new RegExp(`step === ${step}`), `Fast-start step ${step + 1} is missing`);
   }
-  assertContains(onboarding, /Cash at bank/, "Onboarding must ask for optional opening bank cash");
-  assertContains(onboarding, /Cash in hand/, "Onboarding must keep cash in hand separate");
-  assertContains(onboarding, /opening capital/i, "Onboarding must ask for the source of opening money");
-  assertContains(onboarding, /Everything ACC knows|Review your workspace/, "Onboarding needs a source-value review");
+  // The deferred details remain reachable through the edit/checklist path.
+  assertContains(onboarding, /Cash at bank/, "The edit path must still offer opening bank cash");
+  assertContains(onboarding, /Cash in hand/, "The edit path must keep cash in hand separate");
+  assertContains(onboarding, /opening capital/i, "The edit path must offer the source of opening money");
+  assertContains(onboarding, /Finish setup/i, "The fast start must point to the deferred setup checklist");
+  assertContains(onboarding, /Everything ACC knows|Review your workspace/, "The edit path needs a source-value review");
   assertContains(onboarding, /Private workspace[\s\S]{0,140}user\.email/, "The private guest workspace context must be shown read-only");
   assertExcludes(onboarding, /annualRevenue|yearly revenue|Google account email|Signed in|type="email"/i, "Onboarding must not ask for an invented identity/revenue input or imply an external login");
+});
+
+test("a first-time visitor can create a workspace after three fields with default opening balances", async () => {
+  const { calculateFinancialSummary } = await loadFinance();
+  // The profile a three-field fast start submits: zero opening balances and an
+  // unspecified legal structure. It must be a valid, zero-truth workspace.
+  const fastStartProfile = {
+    ownerName: "Asha",
+    email: "",
+    businessName: "Asha Traders",
+    businessType: "retail",
+    customBusinessType: "",
+    legalStructure: "not_specified",
+    openingBankPaise: 0,
+    cashInHandPaise: 0,
+    openingCapitalPaise: 0,
+    connectionMode: "manual",
+    financialYear: "2026–27",
+  };
+  const summary = calculateFinancialSummary(fastStartProfile, []);
+  assert.equal(summary.availableCash.amountPaise, 0);
+  assert.equal(summary.revenue.amountPaise, 0);
+  assert.equal(summary.hasTransactionHistory, false);
 });
 
 test("the ACC visual system keeps the reference-led editorial palette, solid reports, accessible focus, and restrained glass", async () => {

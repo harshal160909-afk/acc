@@ -136,11 +136,27 @@ documented in `docs/DEPENDENCY-SECURITY.md`).
   transaction; acceptable for these sequences.
 
 ### UX-001 — Onboarding is 9 mandatory steps
-- **Current status:** **Still present**.
-- **Current evidence:** `OnboardingFlow.tsx` `const totalSteps = 9`.
-- **Remaining limitation:** Progressive ≤3-field onboarding (Phase 5) is **not**
-  implemented in this session. The guest can already reach the workspace without
-  a Google account; the step reduction is documented as the next priority.
+- **Current status:** **Fixed here**.
+- **Current evidence:** `OnboardingFlow.tsx` now runs a progressive flow:
+  `const fastStart = !initial` and `const totalSteps = fastStart ? 3 : 9`. A
+  first-time visitor completes exactly three fields — name, business name,
+  business type — and the primary action reads **“Open my workspace”**
+  (`isLast = fastStart ? step === 2 : step === 8`). The fast-start submit posts a
+  valid profile with zero opening balances and `legal_structure = not_specified`.
+- **Files affected:** `app/components/OnboardingFlow.tsx`,
+  `app/components/Workspace.tsx` (new `SetupChecklist`), `app/acc.css`.
+- **Change made:** Legal structure, opening bank/cash/capital and connection
+  mode are deferred to a **“Finish setup”** checklist shown in the Books overview
+  of a fresh workspace (and still fully editable via Edit workspace, which keeps
+  the 9-step detailed flow). Opening balances still lock after the first posted
+  entry.
+- **Test proving the change:** `onboarding is a three-field fast start and defers
+  opening balances`; `a first-time visitor can create a workspace after three
+  fields with default opening balances`.
+- **Remaining limitation:** The plain-language “How was this paid?” settlement
+  relabel (Cash / Bank-UPI-card / Customer still owes me / I still owe the
+  supplier) in the transaction entry surface is not part of this change; the
+  deterministic settlement engine already supports those cases.
 
 ### MI-001 — Monitoring frequency stored but no scheduler; forecasting unreachable
 - **Current status:** **Still present**.
@@ -176,6 +192,6 @@ documented in `docs/DEPENDENCY-SECURITY.md`).
 | DB-001   | Already fixed (migration-only schema) |
 | SEC-001  | Already fixed; tightened (dropped Google CSP allowance, bootstrap limit) |
 | DB-002   | Already fixed (D1 batch on multi-writes) |
-| UX-001   | Still present (9-step onboarding — Phase 5 pending) |
+| UX-001   | Fixed here (3-field fast start; opening balances deferred to a Books checklist) |
 | MI-001   | Still present (no scheduler; forecasting gated shut — Phase 7 pending) |
 | PRIV-001 | Already fixed (export + atomic deletion) |

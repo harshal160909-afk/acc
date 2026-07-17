@@ -2,219 +2,225 @@ TAP version 13
 # Subtest: scenario C: exact money input preserves rupees and paise without scaling
 ok 1 - scenario C: exact money input preserves rupees and paise without scaling
   ---
-  duration_ms: 62.628394
+  duration_ms: 51.344295
   type: 'test'
   ...
 # Subtest: malformed, non-finite, negative, and scientific money values are rejected
 ok 2 - malformed, non-finite, negative, and scientific money values are rejected
   ---
-  duration_ms: 0.747235
+  duration_ms: 0.765883
   type: 'test'
   ...
 # Subtest: scenario A: a new workspace is exactly zero with no invented records
 ok 3 - scenario A: a new workspace is exactly zero with no invented records
   ---
-  duration_ms: 221.352861
+  duration_ms: 232.42506
   type: 'test'
   ...
 # Subtest: scenario B: opening ₹50,000 remains cash, never revenue or cash flow
 ok 4 - scenario B: opening ₹50,000 remains cash, never revenue or cash flow
   ---
-  duration_ms: 79.926415
+  duration_ms: 76.3716
   type: 'test'
   ...
 # Subtest: scenario D: a ₹10,000 cash sale changes cash and revenue by exactly ₹10,000
 ok 5 - scenario D: a ₹10,000 cash sale changes cash and revenue by exactly ₹10,000
   ---
-  duration_ms: 79.076371
+  duration_ms: 86.59008
   type: 'test'
   ...
 # Subtest: scenario E: a ₹5,000 bank expense reduces available cash exactly once
 ok 6 - scenario E: a ₹5,000 bank expense reduces available cash exactly once
   ---
-  duration_ms: 48.541826
+  duration_ms: 50.857648
   type: 'test'
   ...
 # Subtest: journal derivation is double-entry balanced and the ledger retains its source
 ok 7 - journal derivation is double-entry balanced and the ledger retains its source
   ---
-  duration_ms: 55.362191
+  duration_ms: 58.322949
   type: 'test'
   ...
 # Subtest: credit sales and unpaid expenses keep the same account names from API to books
 ok 8 - credit sales and unpaid expenses keep the same account names from API to books
   ---
-  duration_ms: 50.267322
+  duration_ms: 54.19627
   type: 'test'
   ...
 # Subtest: capital, assets, liabilities, drawings, investments, bad debts, provisions and reserves stay in the correct statements
 ok 9 - capital, assets, liabilities, drawings, investments, bad debts, provisions and reserves stay in the correct statements
   ---
-  duration_ms: 44.991402
+  duration_ms: 43.278775
   type: 'test'
   ...
 # Subtest: Indian-language transaction extraction preserves lakh, crore, quantity, GST, cheque and mixed settlement arithmetic
 ok 10 - Indian-language transaction extraction preserves lakh, crore, quantity, GST, cheque and mixed settlement arithmetic
   ---
-  duration_ms: 87.721683
+  duration_ms: 89.657303
   type: 'test'
   ...
 # Subtest: collections, supplier payments, returns and reversals use safe accounting flows
 ok 11 - collections, supplier payments, returns and reversals use safe accounting flows
   ---
-  duration_ms: 61.07412
+  duration_ms: 70.758325
   type: 'test'
   ...
 # Subtest: GST, advances, depreciation and returns land in the correct balance-sheet and profit accounts
 ok 12 - GST, advances, depreciation and returns land in the correct balance-sheet and profit accounts
   ---
-  duration_ms: 44.447126
+  duration_ms: 40.797599
   type: 'test'
   ...
 # Subtest: combined opening balances cannot exceed the exact paise range
 ok 13 - combined opening balances cannot exceed the exact paise range
   ---
-  duration_ms: 42.575065
+  duration_ms: 44.936718
   type: 'test'
   ...
 # Subtest: posting is idempotent and opening balances lock after the first post
 ok 14 - posting is idempotent and opening balances lock after the first post
   ---
-  duration_ms: 2.178666
+  duration_ms: 3.149513
   type: 'test'
   ...
 # Subtest: the visible overview period is the same period used for calculations
 ok 15 - the visible overview period is the same period used for calculations
   ---
-  duration_ms: 1.329057
+  duration_ms: 1.684577
   type: 'test'
   ...
 # Subtest: scenario G: cash chart data contains only real transaction dates
 ok 16 - scenario G: cash chart data contains only real transaction dates
   ---
-  duration_ms: 42.193785
+  duration_ms: 47.412843
   type: 'test'
   ...
 # Subtest: money map reconciles opening cash plus real inflows minus real outflows
 ok 17 - money map reconciles opening cash plus real inflows minus real outflows
   ---
-  duration_ms: 38.372212
+  duration_ms: 49.465693
   type: 'test'
   ...
 # Subtest: scenario F and G: loading, failure, and empty-history states remain distinct
 ok 18 - scenario F and G: loading, failure, and empty-history states remain distinct
   ---
-  duration_ms: 15.413665
+  duration_ms: 3.962918
   type: 'test'
   ...
-# Subtest: onboarding asks one sourced question at a time and never requires yearly revenue
-ok 19 - onboarding asks one sourced question at a time and never requires yearly revenue
+# Subtest: onboarding is a three-field fast start and defers opening balances
+ok 19 - onboarding is a three-field fast start and defers opening balances
   ---
-  duration_ms: 1.43658
+  duration_ms: 1.986687
+  type: 'test'
+  ...
+# Subtest: a first-time visitor can create a workspace after three fields with default opening balances
+ok 20 - a first-time visitor can create a workspace after three fields with default opening balances
+  ---
+  duration_ms: 40.164131
   type: 'test'
   ...
 # Subtest: the ACC visual system keeps the reference-led editorial palette, solid reports, accessible focus, and restrained glass
-ok 20 - the ACC visual system keeps the reference-led editorial palette, solid reports, accessible focus, and restrained glass
+ok 21 - the ACC visual system keeps the reference-led editorial palette, solid reports, accessible focus, and restrained glass
   ---
-  duration_ms: 4.538739
+  duration_ms: 9.6495
   type: 'test'
   ...
 # Subtest: ACC navigation, persistent Ask ACC, approval-only posting, Pulse, Investments, and Settings are wired
-ok 21 - ACC navigation, persistent Ask ACC, approval-only posting, Pulse, Investments, and Settings are wired
+ok 22 - ACC navigation, persistent Ask ACC, approval-only posting, Pulse, Investments, and Settings are wired
   ---
-  duration_ms: 3.5684
+  duration_ms: 3.101257
   type: 'test'
   ...
 # Subtest: Market Intelligence cleaning preserves provenance and does not confuse duplicates or promotion with demand
-ok 22 - Market Intelligence cleaning preserves provenance and does not confuse duplicates or promotion with demand
+ok 23 - Market Intelligence cleaning preserves provenance and does not confuse duplicates or promotion with demand
   ---
-  duration_ms: 26.267483
+  duration_ms: 35.723207
   type: 'test'
   ...
 # Subtest: Market Intelligence holds momentum when cross-source evidence is insufficient
-ok 23 - Market Intelligence holds momentum when cross-source evidence is insufficient
+ok 24 - Market Intelligence holds momentum when cross-source evidence is insufficient
   ---
-  duration_ms: 14.403711
+  duration_ms: 20.792962
   type: 'test'
   ...
 # Subtest: Market Intelligence scores are transparent, gated, fixed-version calculations
-ok 24 - Market Intelligence scores are transparent, gated, fixed-version calculations
+ok 25 - Market Intelligence scores are transparent, gated, fixed-version calculations
   ---
-  duration_ms: 15.269117
+  duration_ms: 16.677856
   type: 'test'
   ...
 # Subtest: forecasting stays disabled until history, coverage, stability, missing-data, and backtesting gates all pass
-ok 25 - forecasting stays disabled until history, coverage, stability, missing-data, and backtesting gates all pass
+ok 26 - forecasting stays disabled until history, coverage, stability, missing-data, and backtesting gates all pass
   ---
-  duration_ms: 17.935476
+  duration_ms: 15.00513
   type: 'test'
   ...
 # Subtest: ground-truth evaluation compares estimates with actual validation results by opportunity
-ok 26 - ground-truth evaluation compares estimates with actual validation results by opportunity
+ok 27 - ground-truth evaluation compares estimates with actual validation results by opportunity
   ---
-  duration_ms: 19.150117
+  duration_ms: 19.985353
   type: 'test'
   ...
 # Subtest: the complete Market Intelligence product surface, evidence boundaries, and durable records are wired
-ok 27 - the complete Market Intelligence product surface, evidence boundaries, and durable records are wired
+ok 28 - the complete Market Intelligence product surface, evidence boundaries, and durable records are wired
   ---
-  duration_ms: 4.271291
+  duration_ms: 4.736662
   type: 'test'
   ...
 # Subtest: investment quantities and values remain decimal-safe
-ok 28 - investment quantities and values remain decimal-safe
+ok 29 - investment quantities and values remain decimal-safe
   ---
-  duration_ms: 4.796441
+  duration_ms: 6.453386
   type: 'test'
   ...
 # Subtest: the overview feels simple while its connected visualization stays data-backed
-ok 29 - the overview feels simple while its connected visualization stays data-backed
+ok 30 - the overview feels simple while its connected visualization stays data-backed
   ---
-  duration_ms: 6.244698
+  duration_ms: 2.177332
   type: 'test'
   ...
 # Subtest: profile and entry APIs reject every unauthenticated read and write before storage
-ok 30 - profile and entry APIs reject every unauthenticated read and write before storage
+ok 31 - profile and entry APIs reject every unauthenticated read and write before storage
   ---
-  duration_ms: 111.27684
+  duration_ms: 109.499103
   type: 'test'
   ...
 # Subtest: P0 storage, approval, privacy and portfolio controls are wired to immutable owner identities
-ok 31 - P0 storage, approval, privacy and portfolio controls are wired to immutable owner identities
+ok 32 - P0 storage, approval, privacy and portfolio controls are wired to immutable owner identities
   ---
-  duration_ms: 6.319275
+  duration_ms: 6.760912
   type: 'test'
   ...
 # Subtest: spoofed identity headers never authenticate financial mutations
-ok 32 - spoofed identity headers never authenticate financial mutations
+ok 33 - spoofed identity headers never authenticate financial mutations
   ---
-  duration_ms: 7.953068
+  duration_ms: 11.416349
   type: 'test'
   ...
 # Subtest: server renders the public guest entry with no Google login
-ok 33 - server renders the public guest entry with no Google login
+ok 34 - server renders the public guest entry with no Google login
   ---
-  duration_ms: 67.833716
+  duration_ms: 79.123631
   type: 'test'
   ...
 # Subtest: Google OAuth is fully removed and the public front door is anonymous, isolated, and rate limited
-ok 34 - Google OAuth is fully removed and the public front door is anonymous, isolated, and rate limited
+ok 35 - Google OAuth is fully removed and the public front door is anonymous, isolated, and rate limited
   ---
-  duration_ms: 16.210062
+  duration_ms: 20.289902
   type: 'test'
   ...
 # Subtest: no active or dead app source contains fabricated finance seeds or shared-user fallbacks
-ok 35 - no active or dead app source contains fabricated finance seeds or shared-user fallbacks
+ok 36 - no active or dead app source contains fabricated finance seeds or shared-user fallbacks
   ---
-  duration_ms: 21.358353
+  duration_ms: 24.586926
   type: 'test'
   ...
-1..35
-# tests 35
+1..36
+# tests 36
 # suites 0
-# pass 35
+# pass 36
 # fail 0
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 1979.596825
+# duration_ms 2124.658334
