@@ -1,0 +1,2 @@
+ALTER TABLE `accounting_entries` ADD `idempotency_key` text;--> statement-breakpoint
+CREATE UNIQUE INDEX `accounting_entries_owner_idempotency_idx` ON `accounting_entries` (`owner_key`,`idempotency_key`);

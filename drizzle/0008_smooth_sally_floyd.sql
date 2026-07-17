@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `accounting_entries_ai_draft_idx` ON `accounting_entries` (`ai_draft_id`);
