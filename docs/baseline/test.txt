@@ -1,0 +1,276 @@
+
+> acc-accounting-workspace@10.0.0 test
+> npm run build && node --test tests/rendered-html.test.mjs
+
+
+> acc-accounting-workspace@10.0.0 build
+> vinext build
+
+
+  vinext build  (Vite 8.0.13)
+
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+
+
+(node:4951) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[1/5] analyze client references...
+[2Ktransforming...✓ 156 modules transformed.
+rendering chunks...
+✓ built in 587ms
+[2/5] analyze server references...
+[2Ktransforming...✓ 59 modules transformed.
+rendering chunks...
+✓ built in 245ms
+[3/5] build rsc environment...
+[2Ktransforming...✓ 162 modules transformed.
+rendering chunks...
+computing gzip size...
+✓ built in 719ms
+[4/5] build client environment...
+[2Ktransforming...✓ 67 modules transformed.
+rendering chunks...
+computing gzip size...
+✓ built in 323ms
+[5/5] build ssr environment...
+[2Ktransforming...✓ 65 modules transformed.
+rendering chunks...
+computing gzip size...
+✓ built in 626ms
+[0m
+  Route (app)
+  ┌ ? /                       
+  ├ λ /api/account            
+  ├ λ /api/ai                 
+  ├ λ /api/entries            
+  ├ λ /api/investments        
+  ├ λ /api/market-intelligence
+  ├ λ /api/profile            
+  ├ λ /api/status             
+  ├ λ /api/support            
+  ├ λ /auth/google/callback   
+  ├ λ /auth/google/start      
+  └ λ /auth/signout           
+
+  λ API  ? Unknown
+
+  ? Some routes could not be classified. vinext currently uses static analysis
+    and cannot detect dynamic API usage (headers(), cookies(), etc.) at build time.
+    Automatic classification will be improved in a future release.
+
+  Build complete. Run `vinext start` to start the production server.
+
+TAP version 13
+# Subtest: scenario C: exact money input preserves rupees and paise without scaling
+ok 1 - scenario C: exact money input preserves rupees and paise without scaling
+  ---
+  duration_ms: 70.2026
+  type: 'test'
+  ...
+# Subtest: malformed, non-finite, negative, and scientific money values are rejected
+ok 2 - malformed, non-finite, negative, and scientific money values are rejected
+  ---
+  duration_ms: 0.721822
+  type: 'test'
+  ...
+# Subtest: scenario A: a new workspace is exactly zero with no invented records
+ok 3 - scenario A: a new workspace is exactly zero with no invented records
+  ---
+  duration_ms: 230.743558
+  type: 'test'
+  ...
+# Subtest: scenario B: opening ₹50,000 remains cash, never revenue or cash flow
+ok 4 - scenario B: opening ₹50,000 remains cash, never revenue or cash flow
+  ---
+  duration_ms: 79.840127
+  type: 'test'
+  ...
+# Subtest: scenario D: a ₹10,000 cash sale changes cash and revenue by exactly ₹10,000
+ok 5 - scenario D: a ₹10,000 cash sale changes cash and revenue by exactly ₹10,000
+  ---
+  duration_ms: 82.794474
+  type: 'test'
+  ...
+# Subtest: scenario E: a ₹5,000 bank expense reduces available cash exactly once
+ok 6 - scenario E: a ₹5,000 bank expense reduces available cash exactly once
+  ---
+  duration_ms: 51.649463
+  type: 'test'
+  ...
+# Subtest: journal derivation is double-entry balanced and the ledger retains its source
+ok 7 - journal derivation is double-entry balanced and the ledger retains its source
+  ---
+  duration_ms: 57.509895
+  type: 'test'
+  ...
+# Subtest: credit sales and unpaid expenses keep the same account names from API to books
+ok 8 - credit sales and unpaid expenses keep the same account names from API to books
+  ---
+  duration_ms: 55.831305
+  type: 'test'
+  ...
+# Subtest: capital, assets, liabilities, drawings, investments, bad debts, provisions and reserves stay in the correct statements
+ok 9 - capital, assets, liabilities, drawings, investments, bad debts, provisions and reserves stay in the correct statements
+  ---
+  duration_ms: 41.040702
+  type: 'test'
+  ...
+# Subtest: Indian-language transaction extraction preserves lakh, crore, quantity, GST, cheque and mixed settlement arithmetic
+ok 10 - Indian-language transaction extraction preserves lakh, crore, quantity, GST, cheque and mixed settlement arithmetic
+  ---
+  duration_ms: 78.549914
+  type: 'test'
+  ...
+# Subtest: collections, supplier payments, returns and reversals use safe accounting flows
+ok 11 - collections, supplier payments, returns and reversals use safe accounting flows
+  ---
+  duration_ms: 67.558396
+  type: 'test'
+  ...
+# Subtest: GST, advances, depreciation and returns land in the correct balance-sheet and profit accounts
+ok 12 - GST, advances, depreciation and returns land in the correct balance-sheet and profit accounts
+  ---
+  duration_ms: 37.900824
+  type: 'test'
+  ...
+# Subtest: combined opening balances cannot exceed the exact paise range
+ok 13 - combined opening balances cannot exceed the exact paise range
+  ---
+  duration_ms: 44.533442
+  type: 'test'
+  ...
+# Subtest: posting is idempotent and opening balances lock after the first post
+ok 14 - posting is idempotent and opening balances lock after the first post
+  ---
+  duration_ms: 2.336824
+  type: 'test'
+  ...
+# Subtest: the visible overview period is the same period used for calculations
+ok 15 - the visible overview period is the same period used for calculations
+  ---
+  duration_ms: 1.509227
+  type: 'test'
+  ...
+# Subtest: scenario G: cash chart data contains only real transaction dates
+ok 16 - scenario G: cash chart data contains only real transaction dates
+  ---
+  duration_ms: 47.874789
+  type: 'test'
+  ...
+# Subtest: money map reconciles opening cash plus real inflows minus real outflows
+ok 17 - money map reconciles opening cash plus real inflows minus real outflows
+  ---
+  duration_ms: 44.005695
+  type: 'test'
+  ...
+# Subtest: scenario F and G: loading, failure, and empty-history states remain distinct
+ok 18 - scenario F and G: loading, failure, and empty-history states remain distinct
+  ---
+  duration_ms: 5.02769
+  type: 'test'
+  ...
+# Subtest: onboarding asks one sourced question at a time and never requires yearly revenue
+ok 19 - onboarding asks one sourced question at a time and never requires yearly revenue
+  ---
+  duration_ms: 1.984711
+  type: 'test'
+  ...
+# Subtest: the ACC visual system keeps the reference-led editorial palette, solid reports, accessible focus, and restrained glass
+ok 20 - the ACC visual system keeps the reference-led editorial palette, solid reports, accessible focus, and restrained glass
+  ---
+  duration_ms: 3.771822
+  type: 'test'
+  ...
+# Subtest: ACC navigation, persistent Ask ACC, approval-only posting, Pulse, Investments, and Settings are wired
+ok 21 - ACC navigation, persistent Ask ACC, approval-only posting, Pulse, Investments, and Settings are wired
+  ---
+  duration_ms: 2.348627
+  type: 'test'
+  ...
+# Subtest: Market Intelligence cleaning preserves provenance and does not confuse duplicates or promotion with demand
+ok 22 - Market Intelligence cleaning preserves provenance and does not confuse duplicates or promotion with demand
+  ---
+  duration_ms: 24.201902
+  type: 'test'
+  ...
+# Subtest: Market Intelligence holds momentum when cross-source evidence is insufficient
+ok 23 - Market Intelligence holds momentum when cross-source evidence is insufficient
+  ---
+  duration_ms: 14.838056
+  type: 'test'
+  ...
+# Subtest: Market Intelligence scores are transparent, gated, fixed-version calculations
+ok 24 - Market Intelligence scores are transparent, gated, fixed-version calculations
+  ---
+  duration_ms: 14.142469
+  type: 'test'
+  ...
+# Subtest: forecasting stays disabled until history, coverage, stability, missing-data, and backtesting gates all pass
+ok 25 - forecasting stays disabled until history, coverage, stability, missing-data, and backtesting gates all pass
+  ---
+  duration_ms: 29.567577
+  type: 'test'
+  ...
+# Subtest: ground-truth evaluation compares estimates with actual validation results by opportunity
+ok 26 - ground-truth evaluation compares estimates with actual validation results by opportunity
+  ---
+  duration_ms: 13.752236
+  type: 'test'
+  ...
+# Subtest: the complete Market Intelligence product surface, evidence boundaries, and durable records are wired
+ok 27 - the complete Market Intelligence product surface, evidence boundaries, and durable records are wired
+  ---
+  duration_ms: 5.94922
+  type: 'test'
+  ...
+# Subtest: investment quantities and values remain decimal-safe
+ok 28 - investment quantities and values remain decimal-safe
+  ---
+  duration_ms: 4.966777
+  type: 'test'
+  ...
+# Subtest: the overview feels simple while its connected visualization stays data-backed
+ok 29 - the overview feels simple while its connected visualization stays data-backed
+  ---
+  duration_ms: 1.955511
+  type: 'test'
+  ...
+# Subtest: profile and entry APIs reject every unauthenticated read and write before storage
+ok 30 - profile and entry APIs reject every unauthenticated read and write before storage
+  ---
+  duration_ms: 105.420649
+  type: 'test'
+  ...
+# Subtest: P0 storage, approval, privacy and portfolio controls are wired to immutable owner identities
+ok 31 - P0 storage, approval, privacy and portfolio controls are wired to immutable owner identities
+  ---
+  duration_ms: 11.944955
+  type: 'test'
+  ...
+# Subtest: spoofed identity headers never authenticate financial mutations
+ok 32 - spoofed identity headers never authenticate financial mutations
+  ---
+  duration_ms: 9.692216
+  type: 'test'
+  ...
+# Subtest: server renders ACC entry without a manual Google-email impersonation field
+ok 33 - server renders ACC entry without a manual Google-email impersonation field
+  ---
+  duration_ms: 72.578898
+  type: 'test'
+  ...
+# Subtest: no active or dead app source contains fabricated finance seeds or shared-user fallbacks
+ok 34 - no active or dead app source contains fabricated finance seeds or shared-user fallbacks
+  ---
+  duration_ms: 23.907548
+  type: 'test'
+  ...
+1..34
+# tests 34
+# suites 0
+# pass 34
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2012.267574

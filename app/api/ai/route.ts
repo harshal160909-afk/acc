@@ -1,7 +1,7 @@
 import { continueTransactionConversation, type PendingTransaction } from "../../lib/ai/transaction-assistant";
 import { selectProvider, type AIConversationMessage, type ConversationContextName, type ControlledToolResult } from "../../lib/ai/providers";
 import { executeBooksTool } from "../../lib/server/books";
-import { getRequestIdentity, unauthenticatedResponse } from "../../lib/server/auth";
+import { getRequestIdentity, unauthenticatedResponse } from "../../lib/server/access";
 import { enforceRateLimit, validateJsonMutation } from "../../lib/server/http-security";
 import {
   ensureStore, getDatabase, recordAuditEvent, resolveWorkspace, safeJson,

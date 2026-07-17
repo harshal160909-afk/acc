@@ -1,0 +1,4 @@
+
+> acc-accounting-workspace@10.0.0 lint
+> eslint . --ignore-pattern dist --ignore-pattern .next
+

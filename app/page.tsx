@@ -1,13 +1,16 @@
 import { AccApp } from "./components/AccApp";
-import { getServerIdentity } from "./lib/server/auth";
+import { getServerIdentity } from "./lib/server/access";
 
 export default async function Home() {
-  const user = await getServerIdentity();
+  // A returning visitor already carries a valid session cookie and loads
+  // straight into their private workspace. A first-time visitor has no session
+  // and sees the landing with a single "Open ACC" step. No Google redirect.
+  const identity = await getServerIdentity();
   return (
     <AccApp
-      authenticatedUser={user ? { displayName: user.displayName, email: user.email } : null}
-      signInPath="/auth/google/start?return_to=%2F"
-      signOutPath="/auth/signout"
+      initialIdentity={identity
+        ? { displayName: identity.displayName, accessMode: identity.accessMode, optionalContactEmail: identity.optionalContactEmail }
+        : null}
     />
   );
 }
