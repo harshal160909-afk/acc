@@ -1,4 +1,4 @@
-import { getRequestIdentity, unauthenticatedResponse } from "@/app/lib/server/auth";
+import { getRequestIdentity, unauthenticatedResponse } from "@/app/lib/server/access";
 import { ensureStore, getDatabase, recordAuditEvent, resolveWorkspace } from "@/app/lib/server/context";
 import { investmentCashEffect, multiplyPriceByQuantity, parseQuantityMicros, type InvestmentTransactionType } from "@/app/lib/investments";
 import { fetchLicensedQuote, readMarketConfig } from "@/app/lib/market/provider";

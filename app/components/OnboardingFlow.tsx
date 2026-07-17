@@ -139,7 +139,7 @@ export function OnboardingFlow({ user, initial, openingBalancesLocked = false, o
           <div><span>Workspace setup</span><strong>{String(step + 1).padStart(2, "0")} / {String(totalSteps).padStart(2, "0")}</strong></div>
           <i><b style={{ width: `${((step + 1) / totalSteps) * 100}%` }} /></i>
         </div>
-        <div className="authenticated-chip"><span>Signed in</span><strong>{user.email}</strong></div>
+        <div className="authenticated-chip"><span>Private workspace</span><strong>{user.email || "Linked to this browser"}</strong></div>
       </header>
 
       <section className="onboarding-stage">

@@ -609,8 +609,8 @@ test("onboarding asks one sourced question at a time and never requires yearly r
   assertContains(onboarding, /Cash in hand/, "Onboarding must keep cash in hand separate");
   assertContains(onboarding, /opening capital/i, "Onboarding must ask for the source of opening money");
   assertContains(onboarding, /Everything ACC knows|Review your workspace/, "Onboarding needs a source-value review");
-  assertContains(onboarding, /Signed in[\s\S]{0,120}user\.email/, "Authenticated identity must be shown read-only");
-  assertExcludes(onboarding, /annualRevenue|yearly revenue|Google account email|type="email"/i, "Onboarding still asks for an invented or duplicate identity/revenue input");
+  assertContains(onboarding, /Private workspace[\s\S]{0,140}user\.email/, "The private guest workspace context must be shown read-only");
+  assertExcludes(onboarding, /annualRevenue|yearly revenue|Google account email|Signed in|type="email"/i, "Onboarding must not ask for an invented identity/revenue input or imply an external login");
 });
 
 test("the ACC visual system keeps the reference-led editorial palette, solid reports, accessible focus, and restrained glass", async () => {
@@ -873,8 +873,9 @@ test("profile and entry APIs reject every unauthenticated read and write before 
 });
 
 test("P0 storage, approval, privacy and portfolio controls are wired to immutable owner identities", async () => {
-  const [auth, context, entryApi, investmentApi, investmentView, accountApi, schema] = await Promise.all([
-    readFile(join(appRoot, "lib", "server", "auth.ts"), "utf8"),
+  const [access, bootstrap, context, entryApi, investmentApi, investmentView, accountApi, schema] = await Promise.all([
+    readFile(join(appRoot, "lib", "server", "access.ts"), "utf8"),
+    readFile(join(appRoot, "api", "session", "bootstrap", "route.ts"), "utf8"),
     readFile(join(appRoot, "lib", "server", "context.ts"), "utf8"),
     readFile(join(appRoot, "api", "entries", "route.ts"), "utf8"),
     readFile(join(appRoot, "api", "investments", "route.ts"), "utf8"),
@@ -882,8 +883,16 @@ test("P0 storage, approval, privacy and portfolio controls are wired to immutabl
     readFile(join(appRoot, "api", "account", "route.ts"), "utf8"),
     readFile(join(projectRoot, "db", "schema.ts"), "utf8"),
   ]);
-  assertContains(auth, /google_subject[\s\S]*auth_sessions[\s\S]*id_hash/, "Google identity must resolve to an internal user and hashed server session");
-  assertContains(auth, /RSASSA-PKCS1-v1_5[\s\S]*GOOGLE_ISSUERS[\s\S]*claims\.nonce/, "Google ID tokens require signature, issuer, audience and nonce checks");
+  // The generalized access layer must resolve a hashed server session to an
+  // immutable internal user id, and never store the raw token.
+  assertContains(access, /auth_sessions[\s\S]*JOIN users[\s\S]*s\.id_hash = \?/, "A session must resolve to an internal user via its hashed id");
+  assertContains(access, /createGuestIdentity[\s\S]*access_mode[\s\S]*guest/, "A guest identity must be an immutable internal user, not an email");
+  assertContains(access, /INSERT INTO auth_sessions[\s\S]*sha256\(token\)/, "Only the SHA-256 hash of the session token may be stored");
+  assertExcludes(access, /google_subject\s*=\s*\?|RSASSA-PKCS1-v1_5|GOOGLE_ISSUERS|oauth2\.googleapis\.com/, "No Google OAuth verification may remain in the access layer");
+  assertContains(access, /httpOnly:\s*true[\s\S]*secure:\s*true/, "The session cookie must be HttpOnly and Secure");
+  // Bootstrap is the public front door: idempotent, rate-limited, guest-scoped.
+  assertContains(bootstrap, /bootstrapAccessSession[\s\S]*resolveWorkspace/, "Bootstrap must resolve or create one private workspace per identity");
+  assertContains(bootstrap, /enforceRateLimit\([\s\S]*session:bootstrap/, "Bootstrap must be rate limited");
   assertExcludes(context, /CREATE TABLE|ALTER TABLE/i, "Request-time database DDL must not remain in context setup");
   assertContains(entryApi, /database\.batch\([\s\S]*aiDraftId|aiDraftId[\s\S]*database\.batch\(/, "AI approval must use an atomic D1 batch");
   assertContains(entryApi, /const journalLines[\s\S]*expectedLines = deriveJournalLines[\s\S]*sameJournalLines\(journalLines, expectedLines\)/, "AI-proposed journal lines must be fully re-derived and compared");
@@ -940,7 +949,7 @@ test("spoofed identity headers never authenticate financial mutations", async ()
   }
 });
 
-test("server renders ACC entry without a manual Google-email impersonation field", async () => {
+test("server renders the public guest entry with no Google login", async () => {
   const response = await workerFetch("/", {
     headers: {
       accept: "text/html",
@@ -952,7 +961,43 @@ test("server renders ACC entry without a manual Google-email impersonation field
   const html = await response.text();
   assertContains(html, /<title>[^<]*ACC[^<]*<\/title>/i, "The document title must name ACC");
   assertContains(html, /Your personal AI accountant/i, "The ACC entry proposition is missing");
-  assertExcludes(html, /Google account email|owner@example\.com|Commerce Twin/i, "The entry screen contains a fake or obsolete identity prompt");
+  assertContains(html, /Open ACC/i, "The public entry must offer the one-step Open ACC action");
+  assertExcludes(html, /Continue with Google|Sign in with Google|Google account email|owner@example\.com|Commerce Twin/i, "The entry screen must not reference Google login or a fake identity prompt");
+});
+
+test("Google OAuth is fully removed and the public front door is anonymous, isolated, and rate limited", async () => {
+  const appFiles = await appSourceFiles();
+  const relative = (file) => file.slice(appRoot.length + 1);
+  const oauthRoutes = appFiles.filter((file) => /auth\/google|auth\/signout/.test(relative(file)));
+  assert.deepEqual(oauthRoutes, [], "No Google OAuth route handlers may remain in the app");
+  assert.equal(appFiles.some((file) => relative(file) === "lib/server/auth.ts"), false, "The Google auth module must be replaced by access.ts");
+  assert.equal(appFiles.some((file) => relative(file) === "lib/server/access.ts"), true, "The generalized access module must exist");
+
+  const [envExample, migration, schema] = await Promise.all([
+    readFile(join(projectRoot, ".env.example"), "utf8"),
+    readFile(join(projectRoot, "drizzle", "0010_deep_random.sql"), "utf8"),
+    readFile(join(projectRoot, "db", "schema.ts"), "utf8"),
+  ]);
+  assertExcludes(envExample, /GOOGLE_CLIENT_ID|GOOGLE_CLIENT_SECRET/, "Google OAuth environment variables must be removed");
+  assertContains(schema, /access_mode[\s\S]*optional_contact_email/, "Users must carry an access mode and optional (non-identity) contact email");
+  assertContains(migration, /access_mode[\s\S]*'google'[\s\S]*FROM `users`/, "Legacy verified users must be preserved and tagged access_mode='google'");
+
+  // The bootstrap front door validates the request before any storage access:
+  // a non-JSON body is rejected without touching the database.
+  const wrongType = await workerFetch("/api/session/bootstrap", {
+    method: "POST",
+    headers: { "content-type": "text/plain" },
+    body: "{}",
+  });
+  assert.equal(wrongType.status, 415, "Bootstrap must require an application/json body");
+
+  // A cross-site mutation attempt is blocked before storage.
+  const crossSite = await workerFetch("/api/session/bootstrap", {
+    method: "POST",
+    headers: { "content-type": "application/json", "sec-fetch-site": "cross-site" },
+    body: "{}",
+  });
+  assert.equal(crossSite.status, 403, "Bootstrap must block cross-site mutations");
 });
 
 test("no active or dead app source contains fabricated finance seeds or shared-user fallbacks", async () => {

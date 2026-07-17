@@ -12,7 +12,7 @@ import {
   type ProblemCluster,
 } from "@/app/lib/market-intelligence";
 import { collectPermittedMarketSignals, marketConnectorStatuses, type MarketConnectorName } from "@/app/lib/market-intelligence/connectors";
-import { getRequestIdentity, unauthenticatedResponse } from "@/app/lib/server/auth";
+import { getRequestIdentity, unauthenticatedResponse } from "@/app/lib/server/access";
 import { loadWorkspaceBooks } from "@/app/lib/server/books";
 import { ensureStore, getDatabase, recordAuditEvent, resolveWorkspace, safeJson, type Database } from "@/app/lib/server/context";
 import { ensureMarketIntelligenceStore } from "@/app/lib/server/market-intelligence-store";
