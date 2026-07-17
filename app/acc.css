@@ -610,3 +610,24 @@ body { background-image: linear-gradient(90deg, rgba(255,255,255,.09), transpare
   .setup-checklist > header { flex-direction: column; }
   .setup-steps li .button { width: 100%; }
 }
+
+/* Investment portfolio metrics: novice-friendly primary grid + advanced details. */
+.portfolio-metrics { margin-bottom: 16px; padding: 22px 24px; border-radius: 22px; }
+.metric-primary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.metric-primary-grid article { padding: 14px 16px; border-radius: 16px; background: rgba(255,253,252,.7); display: grid; gap: 3px; }
+.metric-primary-grid article span { color: var(--text-secondary); font-size: 12px; font-weight: 700; }
+.metric-primary-grid article strong { font-size: clamp(20px, 2.6vw, 27px); font-weight: 650; color: var(--text); font-variant-numeric: tabular-nums; }
+.metric-primary-grid article small { color: var(--text-muted); font-size: 11px; }
+.metric-primary-grid article.is-gain strong { color: var(--green); }
+.metric-primary-grid article.is-loss strong { color: var(--oxblood); }
+.metric-advanced { margin-top: 14px; }
+.metric-advanced summary { cursor: pointer; color: var(--text-secondary); font-weight: 650; font-size: 13px; padding: 8px 0; }
+.metric-advanced dl { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 18px; margin: 10px 0 0; }
+.metric-advanced dl div { display: grid; gap: 2px; }
+.metric-advanced dt { color: var(--text-muted); font-size: 11px; font-weight: 650; }
+.metric-advanced dd { margin: 0; color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+.metric-methodology { margin: 12px 0 0; color: var(--text-muted); font-size: 11.5px; line-height: 1.5; }
+@media (max-width: 680px) {
+  .metric-primary-grid { grid-template-columns: 1fr 1fr; }
+  .metric-advanced dl { grid-template-columns: 1fr 1fr; }
+}

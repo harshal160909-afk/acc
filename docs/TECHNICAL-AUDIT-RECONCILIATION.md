@@ -56,12 +56,15 @@ documented in `docs/DEPENDENCY-SECURITY.md`).
   intentionally **not** implemented — see README. Typed email never grants access.
 
 ### INV-001 — Cross-tenant manual-price leakage
-- **Current status:** **Already fixed** in v10.
+- **Current status:** **Already fixed** in v10; **hardened here**.
 - **Current evidence:** `manual_price_snapshots` carries `workspace_id` +
   `owner_key` (`db/schema.ts`); the investments route reads manual prices with
   `m.owner_key = ? AND m.workspace_id = ?` (asserted by launch-gate test
-  *"P0 storage…"* → `FROM manual_price_snapshots … m.owner_key = ? … m.workspace_id = ?`).
-- **Files affected:** none needed.
+  *"P0 storage…"*).
+- **Change made (Phase 4):** Price lookups are now **scoped to only the
+  securities the workspace references** (`WHERE security_id IN (…)`) instead of a
+  global "latest price per security" scan — closing the incidental
+  information-leak surface and the O(all-prices) read.
 - **Remaining limitation:** Global `securities` / `price_snapshots` remain shared
   for *licensed* provider data (by design, tagged separately). No manual price
   crosses tenants.
@@ -176,6 +179,39 @@ documented in `docs/DEPENDENCY-SECURITY.md`).
   (keyed by `users.id`); cookie clear uses the generalized `clearSessionCookie`.
 - **Remaining limitation:** None.
 
+### INVEST-REPORT / P3 — Cost basis, realized/unrealized gains, XIRR, atomicity, pagination
+- **Current status:** **Fixed here** (Phase 4). The audit's Investment Report and
+  remediation P3 listed these as absent ("no cost-basis lots, realized gains, or
+  XIRR"; "naive invested-vs-current"), plus the task's 13 investment issues.
+- **Change made:**
+  - **Cost basis** now uses a documented **weighted-average** method
+    (`app/lib/investments.ts` → `computePortfolioAnalytics`): realized gain on
+    sale = net proceeds − proportional cost removed; **unrealized** gain and
+    **XIRR** are reported *only when every holding has a price*, otherwise
+    honestly `null`. XIRR is a bounded bisection solver returned only when
+    mathematically valid.
+  - **Atomicity:** portfolio-create, transaction (insert + portfolio update +
+    audit), manual-price, and watchlist writes each commit as one D1 `batch()`.
+  - **Race-safe security lookup:** `INSERT OR IGNORE` then read the canonical row.
+  - **Scoped price queries** (see INV-001); **O(transactions)** grouping instead
+    of O(portfolios × transactions).
+  - **Pagination:** `GET /api/investments?portfolioId=…&before=…` returns a
+    cursor page; summaries embed only a bounded recent window + a true count.
+  - **Client submission safety:** one idempotency key per operation (reused on
+    retry), submit disabled while saving, and a request **timeout** on every
+    investment fetch with a clear "nothing was posted twice" message.
+  - **Structured/staged errors:** writes return `{ code, stage, error, retryable }`.
+  - **Novice-friendly UI:** primary Money added / Current value / Profit or loss /
+    Investments held / Income / Missing prices, with an **Advanced** expandable
+    (cost basis, realized, unrealized, XIRR, fees, methodology).
+- **Test proving the change:** `weighted-average cost basis books realized and
+  unrealized gains exactly`; `XIRR is reported only when mathematically valid`;
+  `investment writes are atomic, race-safe, scoped and paginated`.
+- **Remaining limitation:** A buy can still drive portfolio cash negative (no
+  hard funding guard); cash is surfaced honestly rather than blocked. Corporate
+  actions/splits and FIFO-lot reporting remain future work; a licensed-quote
+  refresh writes each snapshot individually (external-provider staged work).
+
 ---
 
 ## Summary
@@ -195,3 +231,4 @@ documented in `docs/DEPENDENCY-SECURITY.md`).
 | UX-001   | Fixed here (3-field fast start; opening balances deferred to a Books checklist) |
 | MI-001   | Still present (no scheduler; forecasting gated shut — Phase 7 pending) |
 | PRIV-001 | Already fixed (export + atomic deletion) |
+| INVEST/P3 | Fixed here (weighted-average cost basis, realized/unrealized, XIRR-when-valid, atomic batches, race-safe security, scoped prices, pagination, idempotent+timed client) |

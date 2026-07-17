@@ -834,15 +834,92 @@ test("the complete Market Intelligence product surface, evidence boundaries, and
   }
 });
 
-test("investment quantities and values remain decimal-safe", async () => {
+async function loadInvestments() {
   const source = await readFile(join(appRoot, "lib", "investments.ts"), "utf8");
   const javascript = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
-  const investmentsModule = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString("base64")}`);
+  return import(`data:text/javascript;base64,${Buffer.from(javascript).toString("base64")}`);
+}
+
+test("investment quantities and values remain decimal-safe", async () => {
+  const investmentsModule = await loadInvestments();
   assert.equal(investmentsModule.parseQuantityMicros("10"), 10_000_000);
   assert.equal(investmentsModule.parseQuantityMicros("0.125"), 125_000);
   assert.equal(investmentsModule.parseQuantityMicros("1.1234567"), null);
   assert.equal(investmentsModule.multiplyPriceByQuantity(245_050, 10_000_000), 2_450_500);
   assert.equal(investmentsModule.formatQuantityMicros(125_000), "0.125");
+});
+
+test("weighted-average cost basis books realized and unrealized gains exactly", async () => {
+  const { computePortfolioAnalytics } = await loadInvestments();
+  // Deposit ₹1,00,000; buy 10 @ ₹2,000 (₹20,000 + ₹100 fees); buy 10 @ ₹2,400
+  // (₹24,000 + ₹100 fees); sell 5 @ ₹3,000 (₹15,000 − ₹50 fees). Weighted-avg
+  // cost pool before sale = 20,100 + 24,100 = 44,200 over 20 units. Selling 5
+  // removes 44,200 * 5/20 = 11,050. Realized = (15,000 − 50) − 11,050 = 3,900.
+  const tx = [
+    { transactionType: "deposit", tradeDate: "2026-01-01", securityId: null, quantityMicros: null, amountPaise: 10_000_000, feesPaise: 0, taxesPaise: 0 },
+    { transactionType: "buy", tradeDate: "2026-01-02", securityId: "sec-1", quantityMicros: 10_000_000, amountPaise: 2_000_000, feesPaise: 10_000, taxesPaise: 0 },
+    { transactionType: "buy", tradeDate: "2026-02-02", securityId: "sec-1", quantityMicros: 10_000_000, amountPaise: 2_400_000, feesPaise: 10_000, taxesPaise: 0 },
+    { transactionType: "sell", tradeDate: "2026-03-02", securityId: "sec-1", quantityMicros: 5_000_000, amountPaise: 1_500_000, feesPaise: 5_000, taxesPaise: 0 },
+  ];
+  const priced = computePortfolioAnalytics(tx, new Map([["sec-1", 250_000]])); // ₹2,500/unit now
+  assert.equal(priced.realizedGainPaise, 390_000); // ₹3,900
+  // Remaining cost pool = 44,200 − 11,050 = 33,150 over 15 units. Value = 15 * 2,500 = 37,500.
+  assert.equal(priced.costBasisPaise, 3_315_000);
+  assert.equal(priced.holdingsValuePaise, 3_750_000);
+  assert.equal(priced.unrealizedGainPaise, 435_000); // 37,500 − 33,150 = 4,350
+  assert.equal(priced.valuationStatus, "complete");
+  assert.equal(priced.dividendsInterestPaise, 0);
+  assert.equal(priced.feesTaxesPaise, 25_000);
+
+  // Without a price, unrealized/total/XIRR are honestly unavailable, not faked.
+  const unpriced = computePortfolioAnalytics(tx, new Map());
+  assert.equal(unpriced.realizedGainPaise, 390_000);
+  assert.equal(unpriced.holdingsValuePaise, null);
+  assert.equal(unpriced.unrealizedGainPaise, null);
+  assert.equal(unpriced.totalValuePaise, null);
+  assert.equal(unpriced.valuationStatus, "missing_prices");
+  assert.equal(unpriced.xirrBps, null);
+  assert.ok(unpriced.xirrUnavailableReason);
+});
+
+test("XIRR is reported only when mathematically valid", async () => {
+  const { computePortfolioAnalytics, computeXirrBps } = await loadInvestments();
+  // A single deposit with no elapsed time and no gain cannot yield a rate.
+  const flat = computeXirrBps([{ transactionType: "deposit", tradeDate: new Date().toISOString().slice(0, 10), securityId: null, quantityMicros: null, amountPaise: 1_000_000, feesPaise: 0, taxesPaise: 0 }], 1_000_000);
+  assert.equal(flat.bps, null);
+  // Deposit ₹1,00,000 a year ago, now worth ₹1,10,000 → ~10% annualized.
+  const oneYearAgo = new Date(Date.now() - 366 * 86_400_000).toISOString().slice(0, 10);
+  const grown = computePortfolioAnalytics(
+    [{ transactionType: "deposit", tradeDate: oneYearAgo, securityId: null, quantityMicros: null, amountPaise: 10_000_000, feesPaise: 0, taxesPaise: 0 }],
+    new Map(),
+  );
+  assert.notEqual(grown.totalValuePaise, null);
+  const xirr = computeXirrBps(
+    [{ transactionType: "deposit", tradeDate: oneYearAgo, securityId: null, quantityMicros: null, amountPaise: 10_000_000, feesPaise: 0, taxesPaise: 0 }],
+    11_000_000,
+  );
+  assert.ok(xirr.bps !== null && xirr.bps > 900 && xirr.bps < 1_100, `expected ~10% (900–1100 bps), got ${xirr.bps}`);
+});
+
+test("investment writes are atomic, race-safe, scoped and paginated", async () => {
+  const [route, view] = await Promise.all([
+    readFile(join(appRoot, "api", "investments", "route.ts"), "utf8"),
+    readFile(join(appRoot, "components", "InvestmentsView.tsx"), "utf8"),
+  ]);
+  // Atomic multi-write commits (transaction + portfolio update + audit).
+  assertContains(route, /commit\(database, \[[\s\S]*INSERT INTO investment_transactions[\s\S]*UPDATE portfolios[\s\S]*auditStatement/, "The transaction write must commit insert, portfolio update and audit atomically");
+  assertContains(route, /if \(database\.batch\) await database\.batch\(statements\)/, "Atomic commit must use D1 batch when available");
+  // Race-safe get-or-create security.
+  assertContains(route, /INSERT OR IGNORE INTO securities[\s\S]*SELECT id FROM securities WHERE symbol = \? AND exchange = \?/, "Security lookup must be race-safe (insert-or-ignore then read canonical)");
+  // Price lookups scoped to relevant securities, not a global scan.
+  assertContains(route, /WHERE security_id IN \(\$\{placeholders\}\)/, "Price lookups must be scoped to the workspace's relevant securities");
+  // Paginated history and bounded embedded transactions.
+  assertContains(route, /async function listTransactions[\s\S]*t\.created_at < \?[\s\S]*ORDER BY t\.created_at DESC LIMIT \?/, "Transaction history must be cursor-paginated");
+  assertContains(route, /recentTransactions: rows\.slice\(-RECENT_TRANSACTION_LIMIT\)/, "Each summary must embed only a bounded recent-transactions window");
+  // Client submission safety: one idempotency key per operation, disabled while saving.
+  assertContains(view, /if \(!txKey\.current\) txKey\.current = crypto\.randomUUID\(\)/, "A transaction must reuse one idempotency key across retries");
+  assertContains(view, /disabled=\{savingTx/, "The transaction submit button must be disabled while saving");
+  assertContains(view, /timedFetch\(/, "Investment requests must use a timeout");
 });
 
 test("the overview feels simple while its connected visualization stays data-backed", async () => {
