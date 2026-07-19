@@ -10,10 +10,34 @@ export type Database = {
 };
 
 export async function getDatabase(): Promise<Database> {
-  const { env } = await import("cloudflare:workers");
-  const database = env.DB as Database | undefined;
-  if (!database) throw new Error("ACC database is unavailable");
-  return database;
+  // Host-agnostic resolution. When a libSQL/Turso database is configured (e.g.
+  // on Netlify or any Node host), use it. Otherwise fall back to the Cloudflare
+  // D1 binding. The SQLite schema and migrations are identical for both.
+  const tursoUrl = readProcessEnv("TURSO_DATABASE_URL") ?? readProcessEnv("LIBSQL_URL");
+  if (tursoUrl) {
+    const { createLibsqlDatabase } = await import("./database-libsql");
+    return createLibsqlDatabase(tursoUrl, readProcessEnv("TURSO_AUTH_TOKEN") ?? readProcessEnv("LIBSQL_AUTH_TOKEN"));
+  }
+  try {
+    const { env } = await import("cloudflare:workers");
+    const database = env.DB as Database | undefined;
+    if (database) return database;
+  } catch {
+    // Not running on Cloudflare Workers; fall through to the error below.
+  }
+  throw new Error("ACC database is unavailable");
+}
+
+// Reads an environment variable in a way that is safe on every runtime: Node
+// and Netlify expose process.env; the Cloudflare worker has no `process`.
+function readProcessEnv(name: string): string | undefined {
+  try {
+    const runtime = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process;
+    const value = runtime?.env?.[name];
+    return value && value.trim() ? value.trim() : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export async function ensureStore(database: Database): Promise<void> {
